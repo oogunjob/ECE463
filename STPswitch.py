@@ -16,6 +16,7 @@ class STPswitch(Switch):
     def __init__(self, addr, heartbeatTime):
         Switch.__init__(self, addr, heartbeatTime)  # initialize superclass - don't remove
         """TODO: add your own class fields and initialization code here"""
+        cost = 1
 
 
     def handlePacket(self, port, packet):

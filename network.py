@@ -274,10 +274,11 @@ def main():
     if len(sys.argv) < 2:
         sys.stdout.write("Usage: python network.py [networkSimulationFile.json]\n")
         return
-    netCfgFilepath = sys.argv[1]
-    switchClass = STPswitch
-    net = Network(netCfgFilepath, switchClass)
-    net.run()
+    netCfgFilepath = sys.argv[1] # stores the json file in the file path
+    switchClass = STPswitch # creates the STPswitch object
+    net = Network(netCfgFilepath, switchClass) # creates the Network obejct from the filepath and switchclass
+    net.run() # runs the STP network 
+
     return
 
 # Extensions of threading.Thread class
