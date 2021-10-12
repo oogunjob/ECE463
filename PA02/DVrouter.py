@@ -16,26 +16,32 @@ class DVrouter(Router):
         Router.__init__(self, addr, heartbeatTime)  # initialize superclass - don't remove
         self.infinity = infinity
         """add your own class fields and initialization code here"""
-        self.graph = {} # A dictionary with KEY = router
-                        # VALUE = a list of lists of all its neighbor routers/clients and the cost to each neighbor
-                        # {router (destination ID): (cost to destination, next hop to destination, [full path])}
+        self.graph = {}
+
+        '''
+        key(DEST ID): (cost, next hop, full path)
+        '''
+
         self.graph[self.addr] = (0, self.addr, [self.addr])
+
+        # for port, link in self.links.items():
+        #     e2 = link.get_e2(self.addr)
+        #     self.graph[e2] = (self.get_cost(), e2, [self.addr, e2])
+
+
 
     def handlePacket(self, port, packet):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
-        if(packet.kind == 1):
-            print("ok")
         
+        '''
+        is it data packet:
+            does something
         else:
-            for port, link in packet.items():
-                e2 = link.get_e2(port)
-                self.graph[e2] = (self.get_cost(), e2, [self.addr, e2])
-        
-                print(self.graph.items())
 
-        # self.send(port, packet)
+        '''
+        # print(packet.kind, packet.srcAddr, packet.dstAddr, loads(packet.content))
 
 
     def handleNewLink(self, port, endpoint, cost):
@@ -54,8 +60,9 @@ class DVrouter(Router):
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
         You can change the value of heartbeatTime in the json file"""
-        
-
-
+        print(self.links)
+        for port, link in self.links.items():
+            packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
+            self.send(port, packet)
 
         pass
