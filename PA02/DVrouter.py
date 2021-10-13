@@ -34,24 +34,55 @@ class DVrouter(Router):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
-
         if packet.isData():
-            pass
-        
+            # print(packet.srcAddr, packet.dstAddr)
+            # print("\n")
+            # print(self.addr, self.graph)
+            # print("\n")
+            # for port, link in self.links.items():
+            #     print(link.get_e2(self.addr))
+            # print(".......................................")
+
+            for port, link in self.links.items():
+                if not packet.srcAddr.isdigit():
+                    newSrc = self.addr
+                else:
+                    newSrc = packet.srcAddr
+
+                if newSrc in self.graph:
+                    transferpacket = Packet(1, self.graph[newSrc][1], packet.dstAddr, packet.content)
+                    self.send(port, transferpacket)
+
+            #pass
         else:
+            flag = 0
             currentPacket = loads(packet.content)
-            print("Tosin")
-            print(currentPacket.items())
 
+            for router, cost_nextHop in currentPacket.items():
+                if router not in self.graph:
+                    if cost_nextHop[1] != self.addr:
+                        self.graph[router] = [self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0], packet.srcAddr]
+                        flag = 1
+                else:
+                    if cost_nextHop[1] != self.addr:
+                        new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
+                        #print(new_cost, self.graph[router][0])
+                        if new_cost < self.graph[router][0]:
+                            new_info = (new_cost, packet.srcAddr)
+                            self.graph[router] = new_info
+                            flag = 1
 
-            for router, cost_nextHop in packet.content.items():
-                #print(router)
+                if flag == 1:
+                    for port, link in self.links.items():
+                        newpacket = Packet(2, packet.dstAddr, link.get_e2(packet.dstAddr), dumps(self.graph))
+                        self.send(port, newpacket)
+                        pass
 
-
-            print(packet.srcAddr, packet.dstAddr, loads(packet.content))
-            print("\n")
-            print(self.addr, self.graph)
-            print(".......................................")
+        print(packet.srcAddr, packet.dstAddr)
+        print("\n")
+        print(self.addr, self.graph)
+        print("\n")
+        print(".......................................")
     
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
