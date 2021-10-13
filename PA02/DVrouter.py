@@ -75,3 +75,10 @@ class DVrouter(Router):
             self.send(port, packet)
 
         pass
+
+    def get_link_cost_helper(self, destination):
+        for port, link in self.links.items():
+            if link.get_e2(self.addr) == destination:
+                return link.cost
+        return 0
+        pass
