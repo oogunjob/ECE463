@@ -22,7 +22,7 @@ class DVrouter(Router):
         key(DEST ID): (cost, next hop, full path)
         '''
 
-        self.graph[self.addr] = (0, self.addr, [self.addr])
+        self.graph[self.addr] = (0, self.addr)
 
         # for port, link in self.links.items():
         #     e2 = link.get_e2(self.addr)
@@ -37,7 +37,17 @@ class DVrouter(Router):
 
         if packet.isData():
             pass
+        
         else:
+            currentPacket = loads(packet.content)
+            print("Tosin")
+            print(currentPacket.items())
+
+
+            for router, cost_nextHop in packet.content.items():
+                #print(router)
+
+
             print(packet.srcAddr, packet.dstAddr, loads(packet.content))
             print("\n")
             print(self.addr, self.graph)
@@ -68,7 +78,7 @@ class DVrouter(Router):
         for port, link in self.links.items():
             neighbour = link.get_e2(self.addr)
             if neighbour not in self.graph and neighbour.isdigit():
-                self.graph[neighbour] = (link.cost, neighbour, [self.addr, neighbour])
+                self.graph[neighbour] = (link.cost, neighbour)
 
         for port, link in self.links.items():
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
