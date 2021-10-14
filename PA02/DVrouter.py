@@ -43,17 +43,17 @@ class DVrouter(Router):
             #     print(link.get_e2(self.addr))
             # print(".......................................")
 
-            for port, link in self.links.items():
-                if not packet.srcAddr.isdigit():
-                    newSrc = self.addr
-                else:
-                    newSrc = packet.srcAddr
+            # for port, link in self.links.items():
+            #     if not packet.srcAddr.isdigit():
+            #         newSrc = self.addr
+            #     else:
+            #         newSrc = packet.srcAddr
 
-                if newSrc in self.graph:
-                    transferpacket = Packet(1, self.graph[newSrc][1], packet.dstAddr, packet.content)
-                    self.send(port, transferpacket)
+            #     if newSrc in self.graph:
+            #         transferpacket = Packet(1, self.graph[newSrc][1], packet.dstAddr, packet.content)
+            #         self.send(port, transferpacket)
 
-            #pass
+            pass
         else:
             flag = 0
             currentPacket = loads(packet.content)
@@ -78,12 +78,12 @@ class DVrouter(Router):
                         self.send(port, newpacket)
                         pass
 
-        print(packet.srcAddr, packet.dstAddr)
-        print("\n")
-        print(self.addr, self.graph)
-        print("\n")
-        print(".......................................")
-    
+            #print(packet.srcAddr, packet.dstAddr, loads(packet.content))
+            print("\n")
+            print(self.addr, self.graph)
+            print("\n")
+            print(".......................................")
+        
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
         link cost has been updated. Implement any routing/forwarding action that
