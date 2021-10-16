@@ -22,32 +22,15 @@ class DVrouter(Router):
         key(DEST ID): (cost, next hop, full path)
         '''
 
-        self.graph[self.addr] = (0, self.addr, 0) # add the port
-
-        # for port, link in self.links.items():
-        #     e2 = link.get_e2(self.addr)
-        #     self.graph[e2] = (self.get_cost(), e2, [self.addr, e2])
-
-
+        self.graph[self.addr] = (0, self.addr)
 
     def handlePacket(self, port, packet):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
         if packet.isData(): 
-            # for port, link in self.links.items():
-            #     print(link.get_e2(self.addr))
-            
-
-            # for port, link in self.links.items():
-            #     if not packet.srcAddr.isdigit():
-            #         newSrc = self.addr
-            #     else:
-            #         newSrc = packet.srcAddr
-
-            #     if newSrc in self.graph:
-            #         transferpacket = Packet(1, self.graph[newSrc][1], packet.dstAddr, packet.content)
-            #         self.send(port, transferpacket)
+            # print(packet.srcAddr, packet.dstAddr)
+            # print(self.addr, self.graph)
 
             if packet.dstAddr in self.graph:
                 sending_port = 0
@@ -55,15 +38,10 @@ class DVrouter(Router):
                     if link.get_e2(self.addr) == self.graph[packet.dstAddr][1]:
                         sending_port = currport
                         break
-
-                print(packet.srcAddr, packet.dstAddr)
-                print(self.addr, self.graph)
-                print(".......................................")
                 self.send(sending_port, packet)
 
-            
+            # print(".......................................")
 
-            #pass
         else:
             flag = 0
             currentPacket = loads(packet.content)
@@ -71,22 +49,19 @@ class DVrouter(Router):
             for router, cost_nextHop in currentPacket.items():
                 if router not in self.graph:
                     if cost_nextHop[1] != self.addr:
-                        self.graph[router] = (self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0], packet.srcAddr, port)
+                        self.graph[router] = (self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0], packet.srcAddr)
                         flag = 1
                 else:
                     if cost_nextHop[1] != self.addr:
                         new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
                         #print(new_cost, self.graph[router][0])
                         if new_cost < self.graph[router][0]:
-                            new_info = (new_cost, packet.srcAddr, port)
+                            new_info = (new_cost, packet.srcAddr)
                             self.graph[router] = new_info
                             flag = 1
 
                 if flag == 1:
-                    for port, link in self.links.items():
-                        newpacket = Packet(2, packet.dstAddr, link.get_e2(packet.dstAddr), dumps(self.graph))
-                        self.send(port, newpacket)
-                        pass
+                    self.handlePeriodicOps()
 
             # print(packet.srcAddr, packet.dstAddr, loads(packet.content))
             # print("\n")
@@ -119,13 +94,11 @@ class DVrouter(Router):
         for port, link in self.links.items():
             neighbour = link.get_e2(self.addr)
             if neighbour not in self.graph:
-                self.graph[neighbour] = (link.cost, neighbour, port)
+                self.graph[neighbour] = (link.cost, neighbour)
 
         for port, link in self.links.items():
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
             self.send(port, packet)
-
-        pass
 
     # replace with self.links[port].getcost()
     def get_link_cost_helper(self, destination):
@@ -133,4 +106,3 @@ class DVrouter(Router):
             if link.get_e2(self.addr) == destination:
                 return link.cost
         return 0
-        pass
