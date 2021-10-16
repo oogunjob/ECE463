@@ -19,7 +19,7 @@ class DVrouter(Router):
         self.graph = {}
 
         '''
-        key(DEST ID): (cost, next hop, full path)
+        key(DEST ID): (cost, next hop)
         '''
 
         self.graph[self.addr] = (0, self.addr)
@@ -29,10 +29,11 @@ class DVrouter(Router):
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
         if packet.isData(): 
-            # print(packet.srcAddr, packet.dstAddr)
-            # print(self.addr, self.graph)
+            print(packet.srcAddr, packet.dstAddr)
+            print(self.addr, self.graph)
 
-            if packet.dstAddr in self.graph:
+            if packet.dstAddr in self.graph and self.graph[packet.dstAddr][1] != "":
+                print("send")
                 sending_port = 0
                 for currport, link in self.links.items():
                     if link.get_e2(self.addr) == self.graph[packet.dstAddr][1]:
@@ -40,7 +41,7 @@ class DVrouter(Router):
                         break
                 self.send(sending_port, packet)
 
-            # print(".......................................")
+            print(".......................................")
 
         else:
             flag = 0
@@ -48,14 +49,21 @@ class DVrouter(Router):
 
             for router, cost_nextHop in currentPacket.items():
                 if router not in self.graph:
+                    new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
+
                     if cost_nextHop[1] != self.addr:
-                        self.graph[router] = (self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0], packet.srcAddr)
+                        if new_cost >= self.infinity:
+                            pass
+                        else:
+                            self.graph[router] = (new_cost, packet.srcAddr)
                         flag = 1
                 else:
                     if cost_nextHop[1] != self.addr:
                         new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
                         #print(new_cost, self.graph[router][0])
-                        if new_cost < self.graph[router][0]:
+                        if new_cost >= self.infinity:
+                            flag = 1
+                        elif new_cost < self.graph[router][0]:
                             new_info = (new_cost, packet.srcAddr)
                             self.graph[router] = new_info
                             flag = 1
@@ -73,17 +81,24 @@ class DVrouter(Router):
         """a new link has been added to switch port and initialized, or an existing
         link cost has been updated. Implement any routing/forwarding action that
         you might want to take under such a scenario"""
+        self.graph[endpoint] = (cost, endpoint)
+        for router, info in self.graph.items():
+            if info[1] == endpoint:
+                self.graph[router] = (info[0] + cost, endpoint)
 
-        '''
-        
-        '''
-
+        self.handlePeriodicOps()
         pass
 
 
     def handleRemoveLink(self, port, endpoint):
         """an existing link has been removed from the switch port. Implement any 
         routing/forwarding action that you might want to take under such a scenario"""
+        for router, info in self.graph.items():
+            if info[1] == endpoint:
+                self.graph[router] = (self.infinity, "")
+
+        self.handlePeriodicOps()
+
         pass
 
 
@@ -93,10 +108,12 @@ class DVrouter(Router):
 
         for port, link in self.links.items():
             neighbour = link.get_e2(self.addr)
+
             if neighbour not in self.graph:
                 self.graph[neighbour] = (link.cost, neighbour)
 
         for port, link in self.links.items():
+
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
             self.send(port, packet)
 
