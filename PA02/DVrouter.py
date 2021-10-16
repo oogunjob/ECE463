@@ -34,14 +34,10 @@ class DVrouter(Router):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
-        if packet.isData():
-            print(packet.srcAddr, packet.dstAddr)
-            print("\n")
-            print(self.addr, self.graph)
-            # print("\n")
+        if packet.isData(): 
             # for port, link in self.links.items():
             #     print(link.get_e2(self.addr))
-            # print(".......................................")
+            
 
             # for port, link in self.links.items():
             #     if not packet.srcAddr.isdigit():
@@ -54,9 +50,18 @@ class DVrouter(Router):
             #         self.send(port, transferpacket)
 
             if packet.dstAddr in self.graph:
-                self.send(self.graph[packet.dstAddr][2], packet)
+                sending_port = 0
+                for currport, link in self.links.items():
+                    if link.get_e2(self.addr) == self.graph[packet.dstAddr][1]:
+                        sending_port = currport
+                        break
 
+                print(packet.srcAddr, packet.dstAddr)
+                print(self.addr, self.graph)
+                print(".......................................")
+                self.send(sending_port, packet)
 
+            
 
             #pass
         else:
@@ -83,11 +88,11 @@ class DVrouter(Router):
                         self.send(port, newpacket)
                         pass
 
-            #print(packet.srcAddr, packet.dstAddr, loads(packet.content))
-            print("\n")
-            print(self.addr, self.graph)
-            print("\n")
-            print(".......................................")
+            # print(packet.srcAddr, packet.dstAddr, loads(packet.content))
+            # print("\n")
+            # print(self.addr, self.graph)
+            # print("\n")
+            # print(".......................................")
         
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
