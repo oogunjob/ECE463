@@ -35,13 +35,51 @@ class LSrouter(Router):
         self.graph[self.addr] = []
         """add your own class fields and initialization code here"""
 
+        self.seqNum = 0
+        self.highestseqNum = defaultdict(int)
+
 
     def handlePacket(self, port, packet):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
-        self.send(port, packet)
+        if packet.isData():
+            print(self.addr, self.graph) 
+            pass
+        else:
+            
+            lsa, seqNum = loads(packet.content)
+            if self.highestseqNum[packet.srcAddr] < seqNum:
+                self.highestseqNum[packet.srcAddr] = seqNum
 
+                # update x view
+                for router, info in lsa.items():
+                    self.graph[router] = info
+
+                # send on every port except arrived port
+                for currport in self.links:
+                    if currport != port:
+                        self.send(currport, packet)
+
+                # print(self.addr, self.graph)
+                # calculate shortest path
+                new_path = self.dijkstra()
+                updated_routing_table = []
+                found = {}
+                index = 0
+                for item in new_path:
+                    if item.addr != self.addr:
+                        if item.addr in found:
+                            if item.cost < found[item.addr][1]:
+                                updated_routing_table[found[item.addr][index]] = [item.addr, item.cost]
+                        else:
+                            updated_routing_table.append([item.addr, item.cost])
+                            found[item.addr] = [index, item.cost]
+                            index += 1
+                        
+                
+                self.graph[self.addr] = updated_routing_table
+                self.handlePeriodicOps()
 
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
@@ -64,6 +102,13 @@ class LSrouter(Router):
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
         You can change the value of heartbeatTime in the json file"""
+
+        info = (self.graph, self.seqNum)
+        for port, link in self.links.items():
+            packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(info))
+            self.send(port, packet)
+
+        self.seqNum += 1
         pass
 
 

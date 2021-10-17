@@ -29,11 +29,11 @@ class DVrouter(Router):
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
         if packet.isData(): 
-            print(packet.srcAddr, packet.dstAddr)
-            print(self.addr, self.graph)
+            # print(packet.srcAddr, packet.dstAddr)
+            # print(self.addr, self.graph)
 
             if packet.dstAddr in self.graph and self.graph[packet.dstAddr][1] != "":
-                print("send")
+                # print("send")
                 sending_port = 0
                 for currport, link in self.links.items():
                     if link.get_e2(self.addr) == self.graph[packet.dstAddr][1]:
@@ -41,7 +41,7 @@ class DVrouter(Router):
                         break
                 self.send(sending_port, packet)
 
-            print(".......................................")
+            # print(".......................................")
 
         else:
             flag = 0
@@ -53,6 +53,8 @@ class DVrouter(Router):
 
                     if cost_nextHop[1] != self.addr:
                         if new_cost >= self.infinity:
+                            # # self.graph[router] = (self.infinity, "")
+                            # del self.graph[router]
                             pass
                         else:
                             self.graph[router] = (new_cost, packet.srcAddr)
@@ -62,6 +64,8 @@ class DVrouter(Router):
                         new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
                         #print(new_cost, self.graph[router][0])
                         if new_cost >= self.infinity:
+                            # self.graph[router] = (self.infinity, "")
+                            del self.graph[router]
                             flag = 1
                         elif new_cost < self.graph[router][0]:
                             new_info = (new_cost, packet.srcAddr)
@@ -71,33 +75,58 @@ class DVrouter(Router):
                 if flag == 1:
                     self.handlePeriodicOps()
 
-            # print(packet.srcAddr, packet.dstAddr, loads(packet.content))
-            # print("\n")
-            # print(self.addr, self.graph)
-            # print("\n")
-            # print(".......................................")
+            print(packet.srcAddr, packet.dstAddr, loads(packet.content))
+            print("\n")
+            print(self.addr, self.graph)
+            print("\n")
+            print(".......................................")
         
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
         link cost has been updated. Implement any routing/forwarding action that
         you might want to take under such a scenario"""
-        self.graph[endpoint] = (cost, endpoint)
+
+        routersToRemove = []
         for router, info in self.graph.items():
             if info[1] == endpoint:
-                self.graph[router] = (info[0] + cost, endpoint)
+                routersToRemove.append(router)
 
-        self.handlePeriodicOps()
+        for router in routersToRemove:
+            del self.graph[router]
+
+
+        self.graph[endpoint] = (cost, endpoint)
+
+        for currPort, link in self.links.items():
+            packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
+            self.send(currPort, packet)
+
+        # print(self.addr)
+        # self.handlePeriodicOps()
         pass
 
 
     def handleRemoveLink(self, port, endpoint):
         """an existing link has been removed from the switch port. Implement any 
         routing/forwarding action that you might want to take under such a scenario"""
+
+        routersToRemove = []
         for router, info in self.graph.items():
             if info[1] == endpoint:
-                self.graph[router] = (self.infinity, "")
+                routersToRemove.append(router)
 
-        self.handlePeriodicOps()
+        for router in routersToRemove:
+            del self.graph[router]
+
+        # self.graph[endpoint] = (self.infinity, "")
+
+        for currPort, link in self.links.items():
+            packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
+            self.send(currPort, packet)
+
+        print(self.addr, endpoint, self.graph)
+
+        # self.handlePeriodicOps()
 
         pass
 
@@ -106,14 +135,13 @@ class DVrouter(Router):
         """handle periodic operations. This method is called every heartbeatTime.
         You can change the value of heartbeatTime in the json file"""
 
+        # for port, link in self.links.items():
+        #     neighbour = link.get_e2(self.addr)
+
+        #     if neighbour not in self.graph:
+        #         self.graph[neighbour] = (link.get_cost(), neighbour)
+
         for port, link in self.links.items():
-            neighbour = link.get_e2(self.addr)
-
-            if neighbour not in self.graph:
-                self.graph[neighbour] = (link.cost, neighbour)
-
-        for port, link in self.links.items():
-
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
             self.send(port, packet)
 
