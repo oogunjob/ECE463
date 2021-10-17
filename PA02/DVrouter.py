@@ -35,21 +35,20 @@ class DVrouter(Router):
                         sending_port = currport
                         break
                 self.send(sending_port, packet)
-
         else:
             flag = 0
             currentPacket = loads(packet.content)
 
             for router, cost_nextHop in currentPacket.items():
                 if router not in self.graph:
-                    new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
+                    new_cost = self.links[port].get_cost() + cost_nextHop[0]
 
                     if cost_nextHop[1] != self.addr and new_cost < self.infinity:
                         self.graph[router] = (new_cost, packet.srcAddr)
                         flag = 1
                 else:
                     if cost_nextHop[1] != self.addr:
-                        new_cost = self.get_link_cost_helper(packet.srcAddr) + cost_nextHop[0]
+                        new_cost = self.links[port].get_cost() + cost_nextHop[0]
 
                         if new_cost >= self.infinity:
                             del self.graph[router]
@@ -108,11 +107,4 @@ class DVrouter(Router):
         for port, link in self.links.items():
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(self.graph))
             self.send(port, packet)
-        pass
-
-    # replace with self.links[port].getcost()
-    def get_link_cost_helper(self, destination):
-        for port, link in self.links.items():
-            if link.get_e2(self.addr) == destination:
-                return link.cost
         pass
