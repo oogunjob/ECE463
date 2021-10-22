@@ -34,6 +34,9 @@ class LSrouter(Router):
                         # {router: [[neighbor_router_or_client, cost]]}
         self.graph[self.addr] = []
         """add your own class fields and initialization code here"""
+        self.routingTable = {}
+        self.seqNum = 0
+        self.highestseqNum = defaultdict(int)
 
         self.seqNum = 0
         self.highestseqNum = defaultdict(int)
@@ -43,12 +46,20 @@ class LSrouter(Router):
         """process incoming packet"""
         # default implementation sends packet back out the port it arrived
         # you should replace it with your implementation
-        if packet.isData(): 
+        if packet.isData():
+            
+            if packet.dstAddr in self.routingTable:
+                sending_port = 0
+                for currport, link in self.links.items():
+                    if link.get_e2(self.addr) == self.routingTable[packet.dstAddr][0]:
+                        sending_port = currport
+                        break
+                self.send(sending_port, packet)
             pass
         else:
-            lsa, seqNum = loads(packet.content)
-            if self.highestseqNum[packet.srcAddr] < seqNum:
-                self.highestseqNum[packet.srcAddr] = seqNum
+            lsa, seq = loads(packet.content)
+            if self.highestseqNum[packet.srcAddr] < seq:
+                self.highestseqNum[packet.srcAddr] = seq
 
                 # update x view
                 for router, info in lsa.items():
@@ -59,25 +70,26 @@ class LSrouter(Router):
                     if currport != port:
                         self.send(currport, packet)
 
-
+                # print(self.addr, self.graph)
                 # calculate shortest path
                 new_path = self.dijkstra()
-                updated_routing_table = []
-                found = {}
-                index = 0
+                new_table = {}
+
+                print("new routes:")
                 for item in new_path:
-                    if item.addr != self.addr:
-                        if item.addr in found:
-                            if item.cost < found[item.addr][1]:
-                                updated_routing_table[found[item.addr][index]] = [item.addr, item.cost]
-                        else:
-                            updated_routing_table.append([item.addr, item.cost])
-                            found[item.addr] = [index, item.cost]
-                            index += 1
-                        
+                    
+                    print(item.addr, item.cost, item.next_hop)
+                    if item.addr not in new_table:
+                        new_table[item.addr] = (item.next_hop, item.cost)
+                    elif item.cost < new_table[item.addr][1]:
+                        new_table[item.addr] = (item.next_hop, item.cost)
+
+                for router in new_table:
+                    self.routingTable[router] = new_table[router]
                 
-                self.graph[self.addr] = updated_routing_table
-                self.handlePeriodicOps()
+                print("\nupdated Routing table:")
+                print(self.addr, self.routingTable)
+                print("...........")
 
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
@@ -86,8 +98,10 @@ class LSrouter(Router):
         for neighbor in self.graph[self.addr]:
             if neighbor[0] == endpoint:
                 self.graph[self.addr].remove(neighbor)
+
         self.graph[self.addr].append([endpoint,cost])
 
+        self.handlePeriodicOps()
 
     def handleRemoveLink(self, port, endpoint):
         """an existing link has been removed from the switch port. Implement any 
@@ -96,6 +110,7 @@ class LSrouter(Router):
             if neighbor[0] == endpoint:
                 self.graph[self.addr].remove(neighbor)
 
+        self.handlePeriodicOps()
 
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
