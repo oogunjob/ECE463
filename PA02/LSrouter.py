@@ -71,7 +71,7 @@ class LSrouter(Router):
                 # calculate shortest path
                 new_path = self.dijkstra()
                 new_table = {}
-
+                # just use dikstras 
                 print("new routes:")
                 for item in new_path:
                     
@@ -98,6 +98,7 @@ class LSrouter(Router):
 
         self.graph[self.addr].append([endpoint,cost])
 
+        # dikstra 
         self.handlePeriodicOps()
 
     def handleRemoveLink(self, port, endpoint):
@@ -108,6 +109,7 @@ class LSrouter(Router):
                 self.graph[self.addr].remove(neighbor)
 
         self.handlePeriodicOps()
+        #update the routing table
 
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
@@ -119,7 +121,6 @@ class LSrouter(Router):
             self.send(port, packet)
 
         self.seqNum += 1
-        pass
 
 
     def dijkstra(self):
