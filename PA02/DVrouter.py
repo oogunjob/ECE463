@@ -73,18 +73,18 @@ class DVrouter(Router):
         """a new link has been added to switch port and initialized, or an existing
         link cost has been updated. Implement any routing/forwarding action that
         you might want to take under such a scenario"""
-
-        '''
-        
-        '''
-
-        pass
+        for neighbor in self.graph[self.addr]:
+                if neighbor[0] == endpoint:
+                    self.graph[self.addr].remove(neighbor)
+        self.graph[self.addr].append([endpoint,cost])
 
 
     def handleRemoveLink(self, port, endpoint):
         """an existing link has been removed from the switch port. Implement any 
         routing/forwarding action that you might want to take under such a scenario"""
-        pass
+        for neighbor in self.graph[self.addr]:
+            if neighbor[0] == endpoint:
+                self.graph[self.addr].remove(neighbor)
 
 
     def handlePeriodicOps(self):
