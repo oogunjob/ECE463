@@ -59,34 +59,24 @@ class LSrouter(Router):
                 self.highestseqNum[packet.srcAddr] = seq
 
                 # update x view
-                for router, info in lsa.items():
-                    self.graph[router] = info
+                self.graph[packet.srcAddr] = lsa
 
                 # send on every port except arrived port
                 for currport in self.links:
                     if currport != port:
                         self.send(currport, packet)
 
-                # print(self.addr, self.graph)
                 # calculate shortest path
                 new_path = self.dijkstra()
                 new_table = {}
 
-                print("new routes:")
+                found = set()
                 for item in new_path:
-                    
-                    print(item.addr, item.cost, item.next_hop)
-                    if item.addr not in new_table:
-                        new_table[item.addr] = (item.next_hop, item.cost)
-                    elif item.cost < new_table[item.addr][1]:
-                        new_table[item.addr] = (item.next_hop, item.cost)
-
-                for router in new_table:
-                    self.routingTable[router] = new_table[router]
-                
-                print("\nupdated Routing table:")
-                print(self.addr, self.routingTable)
-                print("...........")
+                    if item.addr not in found:
+                        self.routingTable[item.addr] = (item.next_hop, item.cost)
+                        found.add(item.addr)
+                    elif self.routingTable[item.addr][1] > item.cost:
+                        self.routingTable[item.addr] = (item.next_hop, item.cost)
 
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
@@ -97,6 +87,10 @@ class LSrouter(Router):
                 self.graph[self.addr].remove(neighbor)
 
         self.graph[self.addr].append([endpoint,cost])
+        
+        updated_path = self.dijkstra()
+        for item in updated_path:   
+            self.routingTable[item.addr] = (item.next_hop, item.cost)
 
         self.handlePeriodicOps()
 
@@ -107,13 +101,22 @@ class LSrouter(Router):
             if neighbor[0] == endpoint:
                 self.graph[self.addr].remove(neighbor)
 
+        updated_path = self.dijkstra()
+        for item in updated_path:   
+            self.routingTable[item.addr] = (item.next_hop, item.cost)
+
         self.handlePeriodicOps()
 
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
         You can change the value of heartbeatTime in the json file"""
+        self.graph[self.addr] = []
 
-        info = (self.graph, self.seqNum)
+        for port, link in self.links.items():
+            self.graph[self.addr].append([link.get_e2(self.addr), link.get_cost()])
+
+
+        info = (self.graph[self.addr], self.seqNum)
         for port, link in self.links.items():
             packet = Packet(2, self.addr, link.get_e2(self.addr), dumps(info))
             self.send(port, packet)
