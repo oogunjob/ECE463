@@ -76,10 +76,12 @@ class LSrouter(Router):
                 found = set()
                 for item in new_path:
                     if item.addr not in found:
-                        self.routingTable[item.addr] = (item.next_hop, item.cost)
+                        new_table[item.addr] = (item.next_hop, item.cost)
                         found.add(item.addr)
-                    elif self.routingTable[item.addr][1] > item.cost:
-                        self.routingTable[item.addr] = (item.next_hop, item.cost)
+                    elif new_table[item.addr][1] > item.cost:
+                        new_table[item.addr] = (item.next_hop, item.cost)
+
+                self.routingTable = new_table
 
     def handleNewLink(self, port, endpoint, cost):
         """a new link has been added to switch port and initialized, or an existing
@@ -92,8 +94,17 @@ class LSrouter(Router):
         self.graph[self.addr].append([endpoint,cost])
         
         updated_path = self.dijkstra()
-        for item in updated_path:   
-            self.routingTable[item.addr] = (item.next_hop, item.cost)
+
+        found = set()
+        new_table = {}
+        for item in updated_path:
+            if item.addr not in found:
+                new_table[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif new_table[item.addr][1] > item.cost:
+                new_table[item.addr] = (item.next_hop, item.cost)
+
+        self.routingTable = new_table
 
         # dikstra 
         self.handlePeriodicOps()
@@ -106,8 +117,16 @@ class LSrouter(Router):
                 self.graph[self.addr].remove(neighbor)
 
         updated_path = self.dijkstra()
-        for item in updated_path:   
-            self.routingTable[item.addr] = (item.next_hop, item.cost)
+        found = set()
+        new_table = {}
+        for item in updated_path:
+            if item.addr not in found:
+                new_table[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif new_table[item.addr][1] > item.cost:
+                new_table[item.addr] = (item.next_hop, item.cost)
+
+        self.routingTable = new_table
 
         self.handlePeriodicOps()
         #update the routing table
@@ -120,6 +139,17 @@ class LSrouter(Router):
         for port, link in self.links.items():
             self.graph[self.addr].append([link.get_e2(self.addr), link.get_cost()])
 
+        updated_path = self.dijkstra()
+        found = set()
+        new_table = {}
+        for item in updated_path:
+            if item.addr not in found:
+                new_table[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif new_table[item.addr][1] > item.cost:
+                new_table[item.addr] = (item.next_hop, item.cost)
+        
+        self.routingTable = new_table
 
         info = (self.graph[self.addr], self.seqNum)
         for port, link in self.links.items():
