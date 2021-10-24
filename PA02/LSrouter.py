@@ -89,8 +89,14 @@ class LSrouter(Router):
         self.graph[self.addr].append([endpoint,cost])
         
         updated_path = self.dijkstra()
-        for item in updated_path:   
-            self.routingTable[item.addr] = (item.next_hop, item.cost)
+
+        found = set()
+        for item in updated_path:
+            if item.addr not in found:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif self.routingTable[item.addr][1] > item.cost:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
 
         self.handlePeriodicOps()
 
@@ -102,8 +108,13 @@ class LSrouter(Router):
                 self.graph[self.addr].remove(neighbor)
 
         updated_path = self.dijkstra()
-        for item in updated_path:   
-            self.routingTable[item.addr] = (item.next_hop, item.cost)
+        found = set()
+        for item in updated_path:
+            if item.addr not in found:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif self.routingTable[item.addr][1] > item.cost:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
 
         self.handlePeriodicOps()
 
@@ -115,6 +126,14 @@ class LSrouter(Router):
         for port, link in self.links.items():
             self.graph[self.addr].append([link.get_e2(self.addr), link.get_cost()])
 
+        updated_path = self.dijkstra()
+        found = set()
+        for item in updated_path:
+            if item.addr not in found:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
+                found.add(item.addr)
+            elif self.routingTable[item.addr][1] > item.cost:
+                self.routingTable[item.addr] = (item.next_hop, item.cost)
 
         info = (self.graph[self.addr], self.seqNum)
         for port, link in self.links.items():
