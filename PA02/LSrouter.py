@@ -105,8 +105,7 @@ class LSrouter(Router):
                 new_table[item.addr] = (item.next_hop, item.cost)
 
         self.routingTable = new_table
-
-        # dikstra 
+        
         self.handlePeriodicOps()
 
     def handleRemoveLink(self, port, endpoint):
@@ -129,7 +128,6 @@ class LSrouter(Router):
         self.routingTable = new_table
 
         self.handlePeriodicOps()
-        #update the routing table
 
     def handlePeriodicOps(self):
         """handle periodic operations. This method is called every heartbeatTime.
