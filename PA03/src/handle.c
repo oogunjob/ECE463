@@ -90,11 +90,13 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
         //TODO initialize tinytcp_conn attributes. filename is contained in data
         tinytcp_conn->curr_state = SYN_RECVD;
-        tinytcp_conn->src_port = src_port;
-        tinytcp_conn->dst_port = dst_port;
+        tinytcp_conn->src_port = dst_port;
+        tinytcp_conn->dst_port = src_port;
         tinytcp_conn->ack_num = ack_num;
         strcpy(tinytcp_conn->filename, data);
         tinytcp_conn->seq_num = seq_num;
+        tinytcp_conn->send_buffer = create_ring_buffer(0);
+        tinytcp_conn->recv_buffer = create_ring_buffer(0);
 
         char filepath[500];
         strcpy(filepath, "recvfiles/");
@@ -133,10 +135,6 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
 
         tinytcp_conn_t* tinytcp_conn = tinytcp_get_conn(dst_port, src_port);
-
-        fprintf(stdout, "%d %d",dst_port, src_port);
-
-
         assert(tinytcp_conn != NULL);
 
         if (tinytcp_conn->curr_state == SYN_SENT) {
@@ -281,7 +279,6 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
     //TODO update tinytcp_conn attributes
     // create send buffer size to 
     // create recieve buffer to
-    tinytcp_conn->curr_state = CONN_ESTABLISHED;
     tinytcp_conn->send_buffer = create_ring_buffer(0);
     tinytcp_conn->recv_buffer = create_ring_buffer(0);
     tinytcp_conn->ack_num = tinytcp_conn->seq_num + 1;
@@ -299,6 +296,7 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
             tinytcp_conn->ack_num, 1, 0, 0, data, data_size);
     send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + data_size);
+    tinytcp_conn->curr_state = CONN_ESTABLISHED;
 
     // set to connection established
     fprintf(stderr, "\nconnection established...sending file %s\n\n",
