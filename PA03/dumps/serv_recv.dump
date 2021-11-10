@@ -1,0 +1,8 @@
+[debug] Recvd Packet (29 bytes): sport:3001 dport:5001 snum:33429 anum:0 ack:0 syn:1 fin:0 data:65 6D 70 74 79 2E 74 78 74 
+
+[debug] Recvd Packet (29 bytes): sport:3001 dport:5001 snum:33430 anum:41197 ack:1 syn:0 fin:0 data:65 6D 70 74 79 2E 74 78 74 
+
+[debug] Recvd Packet (20 bytes): sport:3001 dport:5001 snum:33430 anum:41197 ack:1 syn:0 fin:1 data:
+
+[debug] Recvd Packet (20 bytes): sport:3001 dport:5001 snum:33431 anum:41198 ack:1 syn:0 fin:0 data:
+
