@@ -1,3 +1,3 @@
 import sys
 
-print("Hello Fash! Congrats on finishing assignment0.")
+print("Hello Vishal! Congrats on finishing assignment0.")
