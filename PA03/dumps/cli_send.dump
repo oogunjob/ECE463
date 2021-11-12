@@ -1,8 +1,8 @@
-[debug] Sent Packet (29 bytes): sport:3001 dport:5001 snum:2816 anum:0 ack:0 syn:1 fin:0 data:65 6D 70 74 79 2E 74 78 74 
+[debug] Sent Packet (29 bytes): sport:3001 dport:5001 snum:30531 anum:0 ack:0 syn:1 fin:0 data:65 6D 70 74 79 2E 74 78 74 
 
-[debug] Sent Packet (29 bytes): sport:3001 dport:5001 snum:7900 anum:2817 ack:1 syn:0 fin:0 data:65 6D 70 74 79 2E 74 78 74 
+[debug] Sent Packet (29 bytes): sport:3001 dport:5001 snum:40024 anum:30532 ack:1 syn:0 fin:0 data:65 6D 70 74 79 2E 74 78 74 
 
-[debug] Sent Packet (20 bytes): sport:3001 dport:5001 snum:7900 anum:2817 ack:1 syn:0 fin:1 data:
+[debug] Sent Packet (20 bytes): sport:3001 dport:5001 snum:40024 anum:30532 ack:1 syn:0 fin:1 data:
 
-[debug] Sent Packet (20 bytes): sport:3001 dport:5001 snum:2818 anum:7902 ack:1 syn:0 fin:0 data:
+[debug] Sent Packet (20 bytes): sport:3001 dport:5001 snum:30533 anum:40026 ack:1 syn:0 fin:0 data:
 
