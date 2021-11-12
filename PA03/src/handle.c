@@ -140,6 +140,8 @@ void handle_recv_from_network(char* tinytcp_pkt,
         if (tinytcp_conn->curr_state == SYN_SENT) {
             //TODO update tinytcp_conn attributes
             tinytcp_conn->curr_state = SYN_ACK_RECVD;
+            tinytcp_conn->ack_num = seq_num + 1;
+            tinytcp_conn->seq_num++;
 
             fprintf(stderr, "\nSYN-ACK recvd "
                     "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -201,8 +203,8 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
         if (tinytcp_conn->curr_state == SYN_ACK_SENT) { //conn set up ACK
             //TODO update tinytcp_conn attributes
-           // tinytcp_conn->ack_num = seq_num + 1;
-            //tinytcp_conn->seq_num = ack_num;
+            tinytcp_conn->ack_num = seq_num + 1;
+            tinytcp_conn->seq_num = ack_num;
             tinytcp_conn->curr_state = CONN_ESTABLISHED;
 
             fprintf(stderr, "\nACK recvd "
@@ -214,8 +216,8 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
         } else if (tinytcp_conn->curr_state == FIN_ACK_SENT) { //conn terminate ACK
             //TODO update tinytcp_conn attributes
-            //tinytcp_conn->ack_num = seq_num + 1;
-           // tinytcp_conn->seq_num = ack_num;
+            tinytcp_conn->ack_num = seq_num + 1;
+            tinytcp_conn->seq_num = ack_num;
             tinytcp_conn->curr_state = CONN_TERMINATED;
 
             fprintf(stderr, "\nACK recvd "
@@ -281,14 +283,11 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
     // create recieve buffer to
     tinytcp_conn->send_buffer = create_ring_buffer(0);
     tinytcp_conn->recv_buffer = create_ring_buffer(0);
-    tinytcp_conn->ack_num = tinytcp_conn->seq_num + 1;
-    tinytcp_conn->seq_num = (rand() % (50000 - 100 + 1)) + 100;
-
 
     fprintf(stderr, "\nACK sending "
             "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
             tinytcp_conn->src_port, tinytcp_conn->dst_port,
-            ++(tinytcp_conn->seq_num), tinytcp_conn->ack_num);
+            tinytcp_conn->seq_num, tinytcp_conn->ack_num);
 
     //TODO send ACK
     tinytcp_conn->curr_state = SYN_ACK_SENT;
@@ -331,10 +330,6 @@ void handle_close(tinytcp_conn_t* tinytcp_conn)
 
     //TODO update tinytcp_conn attributes
     tinytcp_conn->curr_state = CONN_TERMINATED;
-    uint32_t seq_num = tinytcp_conn->seq_num;
-    tinytcp_conn->seq_num = tinytcp_conn->ack_num;
-    tinytcp_conn->ack_num = seq_num + 1;
-    
 
     fprintf(stderr, "\nACK sending "
             "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
