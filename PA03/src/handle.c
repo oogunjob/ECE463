@@ -19,11 +19,44 @@
 #include "tinytcp.h"
 #include "handle.h"
 
+uint32_t last_ack_num = 0;
+int ISN = 0;
+
+
+uint32_t ring_buffer_get_data(ring_buffer_t* buffer,
+                            char* dst_buff,
+                            uint32_t bytes, uint32_t seq_num)
+{
+    if (buffer == NULL) {
+        fprintf(stderr, "error ring_buffer_remove: buffer is NULL\n");
+        exit(1);
+    }
+
+    uint32_t occupied = occupied_space(buffer, &seq_num);
+    if (bytes > occupied) {
+        bytes = occupied;
+    }
+
+    uint32_t start_idx = seq_num % get_ring_buffer_capcity(buffer);
+
+    if (dst_buff != NULL && bytes > 0) {
+        if (start_idx + bytes <= get_ring_buffer_capcity(buffer)) {
+            memcpy(dst_buff, (get_ring_buffer_data(buffer) + start_idx), bytes);
+        } else {
+            uint32_t diff = bytes - (get_ring_buffer_capcity(buffer) - start_idx);
+            memcpy(dst_buff, (get_ring_buffer_data(buffer) + start_idx),
+                    (get_ring_buffer_capcity(buffer) - start_idx));
+            memcpy(dst_buff + (get_ring_buffer_capcity(buffer) - start_idx), get_ring_buffer_data(buffer), diff);
+        }
+    }
+    
+    return bytes;
+}
 
 void* handle_send_to_network(void* args)
 {
     fprintf(stderr, "### started send thread\n");
-
+    //printf("here\n");
     while (1) {
 
         int call_send_to_network = 0;
@@ -42,33 +75,41 @@ void* handle_send_to_network(void* args)
                     }
                 }
 
-                if (timer_expired(tinytcp_conn->time_last_new_data_acked)) {
-                    //TODO do someting
-                    // tinytcp_conn->time_last_new_data_acked = 0;
-                    // char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
-                    //     tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-                    //     tinytcp_conn->ack_num, 1, 1, 0, NULL, 0);
-                    // send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + 0);
-
-                }
-
                 //TODO do something else
-                //pthread_spin_lock(&tinytcp_conn->mtx);
+                if(timer_expired(tinytcp_conn->time_last_new_data_acked)){
+                    //TODO do someting
+                    pthread_spin_lock(&tinytcp_conn->mtx);
+                    tinytcp_conn->seq_num = get_ring_buffer_head(tinytcp_conn->send_buffer);
+                    pthread_spin_unlock(&tinytcp_conn->mtx);
 
-                char data[MSS];
+                    tinytcp_conn->time_last_new_data_acked = clock();
+                }
+                
+                if (occupied_space(tinytcp_conn->send_buffer, &tinytcp_conn->seq_num) > 0){
+                    if(tinytcp_conn->num_of_dup_acks >= 3){
+                        pthread_spin_lock(&tinytcp_conn->mtx);
+                        tinytcp_conn->seq_num = get_ring_buffer_head(tinytcp_conn->send_buffer);
+                        pthread_spin_unlock(&tinytcp_conn->mtx);
 
-                uint32_t num_bytes_removed = ring_buffer_remove(tinytcp_conn->send_buffer, data, MSS);
-                tinytcp_conn->seq_num += num_bytes_removed;
+                        tinytcp_conn->num_of_dup_acks = 0;
+                    }
 
-                char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
-                        tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-                        tinytcp_conn->ack_num, 1, 0, 0, data, num_bytes_removed);
-                send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + num_bytes_removed);
-                //pthread_spin_unlock(&tinytcp_conn->mtx);
+                    char data[MSS];
 
+                    pthread_spin_lock(&tinytcp_conn->mtx);
+                    uint32_t num_bytes_removed = ring_buffer_get_data(tinytcp_conn->send_buffer, data, MSS, tinytcp_conn->seq_num);
+                    pthread_spin_unlock(&tinytcp_conn->mtx);
 
-                //TODO make call_send_to_network = 1 everytime you make a call to send_to_network()
-                //call_send_to_network = 1;
+                    char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
+                            tinytcp_conn->dst_port, tinytcp_conn->seq_num,
+                            tinytcp_conn->ack_num, 1, 0, 0, data, num_bytes_removed);
+                    send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + num_bytes_removed);
+                    
+                    tinytcp_conn->seq_num += num_bytes_removed;
+
+                    //TODO make call_send_to_network = 1 everytime you make a call to send_to_network()
+                    call_send_to_network = 1;
+                }
             }
         }
 
@@ -102,17 +143,19 @@ void handle_recv_from_network(char* tinytcp_pkt,
         tinytcp_conn_t* tinytcp_conn = tinytcp_create_conn();
 
         //TODO initialize tinytcp_conn attributes. filename is contained in data
-        //pthread_spin_lock(&tinytcp_conn->mtx);
         tinytcp_conn->curr_state = SYN_RECVD;
-        //pthread_spin_unlock(&tinytcp_conn->mtx);
 
         tinytcp_conn->src_port = dst_port;
         tinytcp_conn->dst_port = src_port;
-        tinytcp_conn->ack_num = ack_num;
-        strcpy(tinytcp_conn->filename, data);
-        tinytcp_conn->seq_num = seq_num;
-        tinytcp_conn->send_buffer = create_ring_buffer(0);
-        tinytcp_conn->recv_buffer = create_ring_buffer(0);
+        tinytcp_conn->ack_num = seq_num + 1;
+        tinytcp_conn->seq_num = (rand() % (50000 - 100 + 1)) + 100;
+        ISN = tinytcp_conn->seq_num;
+        strncpy(tinytcp_conn->filename, data, data_size);
+
+        pthread_spin_lock(&tinytcp_conn->mtx);
+        tinytcp_conn->send_buffer = create_ring_buffer(tinytcp_conn->seq_num + 1);
+        tinytcp_conn->recv_buffer = create_ring_buffer(tinytcp_conn->seq_num + 1);
+        pthread_spin_unlock(&tinytcp_conn->mtx);
 
         char filepath[500];
         strcpy(filepath, "recvfiles/");
@@ -127,8 +170,7 @@ void handle_recv_from_network(char* tinytcp_pkt,
                 src_port, dst_port, seq_num, ack_num);
 
         //TODO update tinytcp_conn attributes
-        tinytcp_conn->ack_num = tinytcp_conn->seq_num + 1;
-        tinytcp_conn->seq_num = (rand() % (50000 - 100 + 1)) + 100;
+        tinytcp_conn->curr_state = SYN_ACK_SENT;
 
         fprintf(stderr, "\nSYN-ACK sending "
                 "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -136,22 +178,16 @@ void handle_recv_from_network(char* tinytcp_pkt,
                 tinytcp_conn->seq_num, tinytcp_conn->ack_num);
 
         //TODO send SYN-ACK
-        //pthread_spin_lock(&tinytcp_conn->mtx);
-        tinytcp_conn->curr_state = SYN_ACK_SENT;
-        //pthread_spin_unlock(&tinytcp_conn->mtx);
-
         char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-            tinytcp_conn->ack_num, 1, 1, 0, tinytcp_conn->filename, data_size);
-        send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + data_size);
+            tinytcp_conn->ack_num, 1, 1, 0, NULL, 0);
+        send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE);
 
 
 
 
     } else if (syn == 1 && ack == 1) { //SYN-ACK recvd
         //get tinytcp connection
-
-
 
         tinytcp_conn_t* tinytcp_conn = tinytcp_get_conn(dst_port, src_port);
         assert(tinytcp_conn != NULL);
@@ -162,7 +198,7 @@ void handle_recv_from_network(char* tinytcp_pkt,
             tinytcp_conn->curr_state = SYN_ACK_RECVD;
             //pthread_spin_unlock(&tinytcp_conn->mtx);
             tinytcp_conn->ack_num = seq_num + 1;
-            tinytcp_conn->seq_num++;
+            tinytcp_conn->seq_num = ack_num;
 
             fprintf(stderr, "\nSYN-ACK recvd "
                     "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -188,6 +224,7 @@ void handle_recv_from_network(char* tinytcp_pkt,
             //TODO update tinytcp_conn attributes
             tinytcp_conn->ack_num = seq_num + 1;
             tinytcp_conn->seq_num = ack_num;
+            tinytcp_conn->curr_state = FIN_ACK_SENT;
 
 
             fprintf(stderr, "\nFIN-ACK sending "
@@ -196,32 +233,23 @@ void handle_recv_from_network(char* tinytcp_pkt,
                     tinytcp_conn->seq_num, tinytcp_conn->ack_num);
 
             //TODO send FIN-ACK
-            //pthread_spin_lock(&tinytcp_conn->mtx);
-            tinytcp_conn->curr_state = FIN_ACK_SENT;
-            //pthread_spin_unlock(&tinytcp_conn->mtx);
-
             char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-            tinytcp_conn->ack_num, 1, 0, 1, tinytcp_conn->filename, data_size);
-            send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + data_size);
+            tinytcp_conn->ack_num, 1, 0, 1, NULL, 0);
+            send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE);
 
 
 
 
         } else if (tinytcp_conn->curr_state == FIN_SENT) { //FIN_ACK recvd
             //TODO update tinytcp_conn attributes
-            
             tinytcp_conn->ack_num = seq_num + 1;
             tinytcp_conn->seq_num = ack_num;
-
-            //pthread_spin_lock(&tinytcp_conn->mtx);
             tinytcp_conn->curr_state = FIN_ACK_RECVD;
-            //pthread_spin_unlock(&tinytcp_conn->mtx);
 
             fprintf(stderr, "\nFIN-ACK recvd "
                     "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
                     src_port, dst_port, seq_num, ack_num);
-
         }
 
     } else if (ack == 1) {
@@ -231,12 +259,10 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
         if (tinytcp_conn->curr_state == SYN_ACK_SENT) { //conn set up ACK
             //TODO update tinytcp_conn attributes
-            tinytcp_conn->ack_num = seq_num + 1;
+            tinytcp_conn->ack_num = seq_num;
             tinytcp_conn->seq_num = ack_num;
 
-            //pthread_spin_lock(&tinytcp_conn->mtx);
             tinytcp_conn->curr_state = CONN_ESTABLISHED;
-            //pthread_spin_unlock(&tinytcp_conn->mtx);
 
             fprintf(stderr, "\nACK recvd "
                     "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -247,12 +273,7 @@ void handle_recv_from_network(char* tinytcp_pkt,
 
         } else if (tinytcp_conn->curr_state == FIN_ACK_SENT) { //conn terminate ACK
             //TODO update tinytcp_conn attributes
-            tinytcp_conn->ack_num = seq_num + 1;
-            tinytcp_conn->seq_num = ack_num;
-
-            //pthread_spin_lock(&tinytcp_conn->mtx);
             tinytcp_conn->curr_state = CONN_TERMINATED;
-            //pthread_spin_unlock(&tinytcp_conn->mtx);
 
             fprintf(stderr, "\nACK recvd "
                     "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -269,20 +290,39 @@ void handle_recv_from_network(char* tinytcp_pkt,
             //initial parts of the assignment!
 
             //TODO handle received data packets
-            uint32_t num_bytes_added = ring_buffer_add(tinytcp_conn->recv_buffer, data, data_size);
-            //update_ring_buffer_tail(tinytcp_conn->recv_buffer, num_bytes_added + tinytcp_conn->recv_buffer);
-            tinytcp_conn->ack_num = seq_num + num_bytes_added;
-            tinytcp_conn->seq_num = ack_num;
+            if (data_size == 0){
+                if(ack_num == get_ring_buffer_head(tinytcp_conn->send_buffer)){
+                    tinytcp_conn->num_of_dup_acks += 1;
+                }
+                else{
+                    if(ack_num > get_ring_buffer_head(tinytcp_conn->send_buffer)){
+                        pthread_spin_lock(&tinytcp_conn->mtx);
+                        update_ring_buffer_head(tinytcp_conn->send_buffer, ack_num);
+                        pthread_spin_unlock(&tinytcp_conn->mtx);
 
-            //TODO reset timer (i.e., set time_last_new_data_acked to clock())
-            //every time some *new* data has been ACKed
-            tinytcp_conn->time_last_new_data_acked = clock();
+                        //TODO reset timer (i.e., set time_last_new_data_acked to clock())
+                        //every time some *new* data has been ACKed
+                        tinytcp_conn->time_last_new_data_acked = clock();
+                        tinytcp_conn->num_of_dup_acks = 0;
+                    }
+                }
+            }
+            else{
+                if(seq_num == tinytcp_conn->ack_num){
+                    pthread_spin_lock(&tinytcp_conn->mtx);
+                    uint32_t num_bytes_added = ring_buffer_add(tinytcp_conn->recv_buffer, data, data_size);
+                    pthread_spin_unlock(&tinytcp_conn->mtx);
 
-            //TODO send back an ACK (if needed).
-            // char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
-            //             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-            //             tinytcp_conn->ack_num, 1, 0, 0, NULL, 0);
-            // send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + 0);
+                    tinytcp_conn->ack_num = seq_num + num_bytes_added;
+                }
+
+                //TODO send back an ACK (if needed).
+                char* tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
+                            tinytcp_conn->dst_port, tinytcp_conn->seq_num,
+                            tinytcp_conn->ack_num, 1, 0, 0, NULL, 0);
+
+                send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE);
+            }
         }
     }
 }
@@ -297,15 +337,18 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
     //TODO initialize tinytcp_conn attributes.
 
     // updates attributes of the tiny tcp
-    //pthread_spin_lock(&tinytcp_conn->mtx);
     tinytcp_conn->curr_state = SYN_SENT;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
-
     tinytcp_conn->src_port = cliport;
     tinytcp_conn->dst_port = servport;
     tinytcp_conn->ack_num = 0;
-    strcpy(tinytcp_conn->filename, data);
+    strncpy(tinytcp_conn->filename, data, data_size);
     tinytcp_conn->seq_num = (rand() % (50000 - 100 + 1)) + 100;
+    ISN = tinytcp_conn->seq_num;
+
+    pthread_spin_lock(&tinytcp_conn->mtx);
+    tinytcp_conn->send_buffer = create_ring_buffer(ISN + 1);
+    tinytcp_conn->recv_buffer = create_ring_buffer(ISN + 1);
+    pthread_spin_unlock(&tinytcp_conn->mtx);
 
 
     fprintf(stderr, "\nSYN sending "
@@ -327,8 +370,6 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
     //TODO update tinytcp_conn attributes
     // create send buffer size to 
     // create recieve buffer to
-    tinytcp_conn->send_buffer = create_ring_buffer(0);
-    tinytcp_conn->recv_buffer = create_ring_buffer(0);
 
     fprintf(stderr, "\nACK sending "
             "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -336,18 +377,12 @@ int tinytcp_connect(tinytcp_conn_t* tinytcp_conn,
             tinytcp_conn->seq_num, tinytcp_conn->ack_num);
 
     //TODO send ACK
-    //pthread_spin_lock(&tinytcp_conn->mtx);
-    tinytcp_conn->curr_state = SYN_ACK_SENT;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
+    tinytcp_conn->curr_state = CONN_ESTABLISHED;
 
     tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
-            tinytcp_conn->ack_num, 1, 0, 0, data, data_size);
-    send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE + data_size);
-
-    //pthread_spin_lock(&tinytcp_conn->mtx);
-    tinytcp_conn->curr_state = CONN_ESTABLISHED;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
+            tinytcp_conn->ack_num, 1, 0, 0, NULL, 0);
+    send_to_network(tinytcp_pkt, TINYTCP_HDR_SIZE);
 
     // set to connection established
     fprintf(stderr, "\nconnection established...sending file %s\n\n",
@@ -361,9 +396,7 @@ void handle_close(tinytcp_conn_t* tinytcp_conn)
 {
     //TODO update tinytcp_conn attributes
     // change cur state to fin state
-    //pthread_spin_lock(&tinytcp_conn->mtx);
     tinytcp_conn->curr_state = FIN_SENT;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
 
     fprintf(stderr, "\nFIN sending "
             "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -383,9 +416,7 @@ void handle_close(tinytcp_conn_t* tinytcp_conn)
     }
 
     //TODO update tinytcp_conn attributes
-    //pthread_spin_lock(&tinytcp_conn->mtx);
     tinytcp_conn->curr_state = CONN_TERMINATED;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
 
     fprintf(stderr, "\nACK sending "
             "(src_port:%u dst_port:%u seq_num:%u ack_num:%u)\n",
@@ -393,10 +424,6 @@ void handle_close(tinytcp_conn_t* tinytcp_conn)
             tinytcp_conn->seq_num, tinytcp_conn->ack_num);
 
     //TODO send ACK
-    //pthread_spin_lock(&tinytcp_conn->mtx);
-    tinytcp_conn->curr_state = FIN_ACK_SENT;
-    //pthread_spin_unlock(&tinytcp_conn->mtx);
-
     tinytcp_pkt = create_tinytcp_pkt(tinytcp_conn->src_port,
             tinytcp_conn->dst_port, tinytcp_conn->seq_num,
             tinytcp_conn->ack_num, 1, 0, 0, NULL, 0);
