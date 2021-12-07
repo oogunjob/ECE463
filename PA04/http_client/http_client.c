@@ -17,11 +17,92 @@
 #include <sys/stat.h>
 
 char* getFileName(char* filepath);
-int ReadHttpStatus(int sock);
+int HTTPStatus(int sock);
 int computeFileSize(int sock);
 
-int main(int argc, char *argv[])
-{
+char* getFileName(char* filepath){
+    char *filename = filepath + strlen(filepath); // filename
+    
+    // extracts filename from path
+    for (; filename > filepath; filename--){
+        if ((*filename == '\\') || (*filename == '/')){
+            filename++;
+            break;
+        }
+    }
+
+    return filename; // returns filename
+}
+
+int computeFileSize(int sock){
+    
+    char buffer[1024];
+    char* ptr = buffer + 4;
+    
+    int bytesReceived;
+    
+    while(bytesReceived = recv(sock, ptr, 1, 0)){
+        if(bytesReceived < 0){
+            perror("computeFileSize");
+            exit(1);
+        }
+
+        if((ptr[-3] == '\r')  && (ptr[-2] == '\n' ) && (ptr[-1] == '\r')  && (*ptr == '\n')) 
+            break;
+        
+        ptr++;
+    }
+
+    *ptr = 0;
+    ptr = buffer + 4;
+
+    if(bytesReceived){
+        ptr = strstr(ptr,"fileSize");
+        
+        if(ptr){
+            sscanf(ptr,"%*s %d",&bytesReceived);
+        }
+        else{
+            bytesReceived = -1;
+        }
+    }
+    
+    return bytesReceived;
+}
+
+int HTTPStatus(int sock){
+
+    char buffer[1024];
+    char* ptr = buffer + 1;
+    
+    int bytesReceived;
+    int status;
+    
+    while(bytesReceived = recv(sock, ptr, 1, 0)){
+        if(bytesReceived < 0){
+            perror("ReadHttpStatus");
+            exit(1);
+        }
+
+        if((ptr[-1]=='\r')  && (*ptr=='\n' )) 
+            break;
+        
+        ptr++;
+    }
+
+    *ptr = 0;
+    ptr = buffer + 1;
+
+    sscanf(ptr,"%*s %d ", &status);
+
+    if(bytesReceived > 0){
+        return status;
+    }
+
+    return 0;
+}
+
+int main(int argc, char *argv[]){
     if (argc != 4) {
         fprintf(stderr,"usage: ./http_client [host] [port number] [filepath]\n");
         exit(1);
@@ -32,6 +113,7 @@ int main(int argc, char *argv[])
     int port = (int) strtol(argv[2], NULL, 10);
     char* filepath = argv[3];
     char* filename = getFileName(filepath);
+    FILE* file = NULL;
 
     // variables for sock construction
     int sock;
@@ -72,11 +154,11 @@ int main(int argc, char *argv[])
     
     int fileSize; // size of the file being downloaded
 
-    if(ReadHttpStatus(sock) && (fileSize = computeFileSize(sock))){
+    if(HTTPStatus(sock) && (fileSize = computeFileSize(sock))){
 
         int bytes = 0; // current number of bytes written to file
 
-        FILE* file = fopen(filename, "w"); // opens the file to be downloaded
+        file = fopen(filename, "w"); // opens the file to be downloaded
 
         while(bytesReceived = recv(sock, recv_data, 1024, 0)){
             if(bytesReceived == -1){
@@ -84,9 +166,11 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            fwrite(recv_data, 1, bytesReceived, file); // writes bytes to file
+            // writes bytes to file
+            fwrite(recv_data, 1, bytesReceived, file);
             bytes += bytesReceived;
 
+            // stops receiving bytes when the number of current bytes reaches file size
             if(bytes == fileSize){
                 break;
             }
@@ -98,86 +182,4 @@ int main(int argc, char *argv[])
     close(sock); // closes the socket
 
     return 0;
-}
-
-char* getFileName(char* filepath){
-    char *filename; // filename
-    filename = filepath + strlen(filepath);
-    
-    // extracts filename from path
-    for (; filename > filepath; filename--){
-        if ((*filename == '\\') || (*filename == '/')){
-            filename++;
-            break;
-        }
-    }
-
-    return filename; // returns filename
-}
-
-int computeFileSize(int sock){
-    char c;
-    
-    char buff[1024] = "";
-    char* ptr= buff + 4;
-    
-    int bytes_received;
-    int status;
-    
-    printf("Begin HEADER ..\n");
-    while(bytes_received = recv(sock, ptr, 1, 0)){
-        if(bytes_received==-1){
-            perror("Parse Header");
-            exit(1);
-        }
-
-        if((ptr[-3]=='\r')  && (ptr[-2]=='\n' ) && (ptr[-1]=='\r')  && (*ptr=='\n')) 
-            break;
-        
-        ptr++;
-    }
-
-    *ptr = 0;
-    ptr = buff + 4;
-    //printf("%s",ptr);
-
-    if(bytes_received){
-        ptr = strstr(ptr,"Content-Length:");
-        if(ptr){
-            sscanf(ptr,"%*s %d",&bytes_received);
-
-        }else
-            bytes_received=-1; //unknown size
-
-       printf("Content-Length: %d\n",bytes_received);
-    }
-    printf("End HEADER ..\n");
-    
-    return  bytes_received;
-}
-
-int ReadHttpStatus(int sock){
-    char c;
-    char buff[1024]="",*ptr=buff+1;
-    int bytes_received, status;
-    printf("Begin Response ..\n");
-    while(bytes_received = recv(sock, ptr, 1, 0)){
-        if(bytes_received==-1){
-            perror("ReadHttpStatus");
-            exit(1);
-        }
-
-        if((ptr[-1]=='\r')  && (*ptr=='\n' )) break;
-        ptr++;
-    }
-    *ptr=0;
-    ptr=buff+1;
-
-    sscanf(ptr,"%*s %d ", &status);
-
-    printf("%s\n",ptr);
-    printf("status=%d\n",status);
-    printf("End Response ..\n");
-    return (bytes_received>0)?status:0;
-
 }
