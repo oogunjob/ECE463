@@ -8,6 +8,12 @@ default: all
 
 all: http_client
 
+test1: http_client
+	./http_client www.gnu.org 80 /software/make/manual/make.html
+
+test2: http_client
+	./http_client www.gnu.org 80 /software/make/manual/make.pdf
+
 memory: http_client
 	$(VAL) ./http_client www.gnu.org 80 /software/make/manual/make.html
 

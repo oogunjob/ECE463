@@ -84,7 +84,7 @@ int HTTPStatus(int sock){
             exit(1);
         }
 
-        if((ptr[-1] == '\r')  && (*ptr == '\n')) 
+        if((ptr[-1] == '\r') && (*ptr == '\n')) 
             break;
         
         ptr++;
@@ -103,7 +103,7 @@ int HTTPStatus(int sock){
 }
 
 int main(int argc, char *argv[]){
-    if (argc != 4) {
+    if (argc != 4){
         fprintf(stderr,"usage: ./http_client [host] [port number] [filepath]\n");
         exit(1);
     }
