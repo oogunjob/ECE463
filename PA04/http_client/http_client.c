@@ -67,7 +67,7 @@ int computeFileSize(int sock){
         }
     }
     
-    return bytesReceived;
+    return bytesReceived; // returns the number of bytes received
 }
 
 int HTTPStatus(int sock){
@@ -84,7 +84,7 @@ int HTTPStatus(int sock){
             exit(1);
         }
 
-        if((ptr[-1]=='\r')  && (*ptr=='\n' )) 
+        if((ptr[-1] =='\r')  && (*ptr =='\n' )) 
             break;
         
         ptr++;
@@ -96,7 +96,7 @@ int HTTPStatus(int sock){
     sscanf(ptr,"%*s %d ", &status);
 
     if(bytesReceived > 0){
-        return status;
+        return status; // returns file status size
     }
 
     return 0;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]){
         file = fopen(filename, "w"); // opens the file to be downloaded
 
         while(bytesReceived = recv(sock, recv_data, 1024, 0)){
-            if(bytesReceived == -1){
+            if(bytesReceived < 0){
                 perror("recieve");
                 exit(1);
             }
