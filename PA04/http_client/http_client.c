@@ -80,11 +80,11 @@ int HTTPStatus(int sock){
     
     while(bytesReceived = recv(sock, ptr, 1, 0)){
         if(bytesReceived < 0){
-            perror("ReadHttpStatus");
+            perror("HTTPStatus");
             exit(1);
         }
 
-        if((ptr[-1] =='\r')  && (*ptr =='\n' )) 
+        if((ptr[-1] == '\r')  && (*ptr == '\n')) 
             break;
         
         ptr++;
