@@ -1,18 +1,160 @@
-#include <sys/socket.h>
+/* The code is subject to Purdue University copyright policies.
+ * DO NOT SHARE, DISTRIBUTE, OR POST ONLINE
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <errno.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
-#include <string.h>
+char* getFileName(char* filepath);
+int ReadHttpStatus(int sock);
+int computeFileSize(int sock);
 
+int main(int argc, char *argv[])
+{
+    if (argc != 4) {
+        fprintf(stderr,"usage: ./http_client [host] [port number] [filepath]\n");
+        exit(1);
+    }
+
+    // stores command line arguments in variables
+    char* domain = argv[1];
+    int port = (int) strtol(argv[2], NULL, 10);
+    char* filepath = argv[3];
+    char* filename = getFileName(filepath);
+
+    // variables for sock construction
+    int sock;
+    struct sockaddr_in server_addr;
+    struct hostent *host;
+
+    int bytesReceived;
+    char send_data[1024];
+    char recv_data[1024];
+
+	if ((host = gethostbyname(domain)) == NULL) {
+		herror("gethostbyname");
+		exit(1);
+	}
+
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("socket");
+		exit(1);
+	}
+
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(port);
+	server_addr.sin_addr = *((struct in_addr *)host->h_addr_list[0]);
+	bzero(&(server_addr.sin_zero), 8);
+	
+    if (connect(sock, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) < 0) {
+		perror("connect");
+		exit(1);
+	}
+
+    // data to send to host
+    snprintf(send_data, sizeof(send_data), "GET /%s HTTP/1.1\r\nHost: %s\r\n\r\n", filepath, domain);
+
+    if(send(sock, send_data, strlen(send_data), 0) < 0){
+        perror("send");
+        exit(1); 
+    }
+    
+    int fileSize; // size of the file being downloaded
+
+    if(ReadHttpStatus(sock) && (fileSize = computeFileSize(sock))){
+
+        int bytes = 0; // current number of bytes written to file
+
+        FILE* file = fopen(filename, "w"); // opens the file to be downloaded
+
+        while(bytesReceived = recv(sock, recv_data, 1024, 0)){
+            if(bytesReceived == -1){
+                perror("recieve");
+                exit(1);
+            }
+
+            fwrite(recv_data, 1, bytesReceived, file); // writes bytes to file
+            bytes += bytesReceived;
+
+            if(bytes == fileSize){
+                break;
+            }
+        }
+
+        fclose(file); // closes the file
+    }
+
+    close(sock); // closes the socket
+
+    return 0;
+}
+
+char* getFileName(char* filepath){
+    char *filename; // filename
+    filename = filepath + strlen(filepath);
+    
+    // extracts filename from path
+    for (; filename > filepath; filename--){
+        if ((*filename == '\\') || (*filename == '/')){
+            filename++;
+            break;
+        }
+    }
+
+    return filename; // returns filename
+}
+
+int computeFileSize(int sock){
+    char c;
+    
+    char buff[1024] = "";
+    char* ptr= buff + 4;
+    
+    int bytes_received;
+    int status;
+    
+    printf("Begin HEADER ..\n");
+    while(bytes_received = recv(sock, ptr, 1, 0)){
+        if(bytes_received==-1){
+            perror("Parse Header");
+            exit(1);
+        }
+
+        if((ptr[-3]=='\r')  && (ptr[-2]=='\n' ) && (ptr[-1]=='\r')  && (*ptr=='\n')) 
+            break;
+        
+        ptr++;
+    }
+
+    *ptr = 0;
+    ptr = buff + 4;
+    //printf("%s",ptr);
+
+    if(bytes_received){
+        ptr = strstr(ptr,"Content-Length:");
+        if(ptr){
+            sscanf(ptr,"%*s %d",&bytes_received);
+
+        }else
+            bytes_received=-1; //unknown size
+
+       printf("Content-Length: %d\n",bytes_received);
+    }
+    printf("End HEADER ..\n");
+    
+    return  bytes_received;
+}
 
 int ReadHttpStatus(int sock){
     char c;
@@ -38,122 +180,4 @@ int ReadHttpStatus(int sock){
     printf("End Response ..\n");
     return (bytes_received>0)?status:0;
 
-}
-
-//the only filed that it parsed is 'Content-Length' 
-int ParseHeader(int sock){
-    char c;
-    char buff[1024]="",*ptr=buff+4;
-    int bytes_received, status;
-    printf("Begin HEADER ..\n");
-    while(bytes_received = recv(sock, ptr, 1, 0)){
-        if(bytes_received==-1){
-            perror("Parse Header");
-            exit(1);
-        }
-
-        if(
-            (ptr[-3]=='\r')  && (ptr[-2]=='\n' ) &&
-            (ptr[-1]=='\r')  && (*ptr=='\n' )
-        ) break;
-        ptr++;
-    }
-
-    *ptr=0;
-    ptr=buff+4;
-    //printf("%s",ptr);
-
-    if(bytes_received){
-        ptr=strstr(ptr,"Content-Length:");
-        if(ptr){
-            sscanf(ptr,"%*s %d",&bytes_received);
-
-        }else
-            bytes_received=-1; //unknown size
-
-       printf("Content-Length: %d\n",bytes_received);
-    }
-    printf("End HEADER ..\n");
-    return  bytes_received ;
-
-}
-
-int main(void){
-
-
-    // gnu.org
-    // software/make/manual/make.html
-
-
-    char domain[] = "www.gnu.org", path[]="software/make/manual/make.html"; 
-
-    int sock, bytes_received;  
-    char send_data[1024],recv_data[1024], *p;
-    struct sockaddr_in server_addr;
-    struct hostent *he;
-
-
-    he = gethostbyname(domain);
-    if (he == NULL){
-       herror("gethostbyname");
-       exit(1);
-    }
-
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0))== -1){
-       perror("Socket");
-       exit(1);
-    }
-    server_addr.sin_family = AF_INET;     
-    server_addr.sin_port = htons(80);
-    server_addr.sin_addr = *((struct in_addr *)he->h_addr);
-    bzero(&(server_addr.sin_zero),8); 
-
-    printf("Connecting ...\n");
-    if (connect(sock, (struct sockaddr *)&server_addr,sizeof(struct sockaddr)) == -1){
-       perror("Connect");
-       exit(1); 
-    }
-
-    printf("Sending data ...\n");
-
-    snprintf(send_data, sizeof(send_data), "GET /%s HTTP/1.1\r\nHost: %s\r\n\r\n", path, domain);
-
-    if(send(sock, send_data, strlen(send_data), 0)==-1){
-        perror("send");
-        exit(2); 
-    }
-    printf("Data sent.\n");  
-
-    //fp=fopen("received_file","wb");
-    printf("Recieving data...\n\n");
-
-    int contentlengh;
-
-    if(ReadHttpStatus(sock) && (contentlengh=ParseHeader(sock))){
-
-        int bytes=0;
-        FILE* fd=fopen("test.html","w");
-        printf("Saving data...\n\n");
-
-        while(bytes_received = recv(sock, recv_data, 1024, 0)){
-            if(bytes_received==-1){
-                perror("recieve");
-                exit(3);
-            }
-
-
-            fwrite(recv_data,1,bytes_received,fd);
-            bytes+=bytes_received;
-            printf("Bytes recieved: %d from %d\n",bytes,contentlengh);
-            if(bytes==contentlengh)
-            break;
-        }
-        fclose(fd);
-    }
-
-
-
-    close(sock);
-    printf("\n\nDone.\n\n");
-    return 0;
 }
