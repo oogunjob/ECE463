@@ -36,7 +36,7 @@ char* getFileName(char* filepath){
 
 int computeFileSize(int sock){
     
-    char buffer[1024];
+    char buffer[1024] = {0};
     char* ptr = buffer + 4;
     
     int bytesReceived;
@@ -72,7 +72,7 @@ int computeFileSize(int sock){
 
 int HTTPStatus(int sock){
 
-    char buffer[1024];
+    char buffer[1024] = {0};
     char* ptr = buffer + 1;
     
     int bytesReceived;

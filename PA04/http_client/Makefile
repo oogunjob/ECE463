@@ -2,7 +2,7 @@ CC = gcc
 
 CFLAGS = -std=gnu99 -g -O3
 
-VAL = valgrind --tool=memcheck --log-file=memcheck.txt --leak-check=full --verbose
+VAL = valgrind --tool=memcheck --track-origins=yes --log-file=memcheck.txt --leak-check=full --verbose
 
 default: all
 
