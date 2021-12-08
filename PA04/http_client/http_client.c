@@ -66,7 +66,7 @@ int computeFileSize(int sock){
             bytesReceived = -1;
         }
     }
-    
+
     return bytesReceived; // returns the number of bytes received
 }
 
@@ -94,6 +94,8 @@ int HTTPStatus(int sock){
     ptr = buffer + 1;
 
     sscanf(ptr,"%*s %d ", &status);
+
+    printf("%s\n",ptr); // prints the status of the connection *** confirm with TA ***
 
     if(bytesReceived > 0){
         return status; // returns file status size
@@ -176,6 +178,7 @@ int main(int argc, char *argv[]){
             }
         }
 
+        // printf("Content-Length: %d\n", bytes); *** confirm with TA tomorrow ***
         fclose(file); // closes the file
     }
 
