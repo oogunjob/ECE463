@@ -36,7 +36,7 @@ char* getFileName(char* filepath){
 
 int computeFileSize(int sock){
     
-    char buffer[1024];
+    char buffer[1024] = {0};
     char* ptr = buffer + 4;
     
     int bytesReceived;
@@ -66,13 +66,13 @@ int computeFileSize(int sock){
             bytesReceived = -1;
         }
     }
-    
+
     return bytesReceived; // returns the number of bytes received
 }
 
 int HTTPStatus(int sock){
 
-    char buffer[1024];
+    char buffer[1024] = {0};
     char* ptr = buffer + 1;
     
     int bytesReceived;
@@ -84,7 +84,7 @@ int HTTPStatus(int sock){
             exit(1);
         }
 
-        if((ptr[-1] == '\r')  && (*ptr == '\n')) 
+        if((ptr[-1] == '\r') && (*ptr == '\n')) 
             break;
         
         ptr++;
@@ -95,6 +95,8 @@ int HTTPStatus(int sock){
 
     sscanf(ptr,"%*s %d ", &status);
 
+    printf("%s\n",ptr); // prints the status of the connection *** confirm with TA ***
+
     if(bytesReceived > 0){
         return status; // returns file status size
     }
@@ -103,7 +105,7 @@ int HTTPStatus(int sock){
 }
 
 int main(int argc, char *argv[]){
-    if (argc != 4) {
+    if (argc != 4){
         fprintf(stderr,"usage: ./http_client [host] [port number] [filepath]\n");
         exit(1);
     }
@@ -176,6 +178,7 @@ int main(int argc, char *argv[]){
             }
         }
 
+        // printf("Content-Length: %d\n", bytes); *** confirm with TA tomorrow ***
         fclose(file); // closes the file
     }
 
