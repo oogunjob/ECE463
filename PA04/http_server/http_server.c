@@ -99,13 +99,12 @@ void respond(int client_sock, struct sockaddr_in client){
 		fprintf(stderr,("recv() error\n"));
 	
   // no longer receivng messages, is this needed?
-  else if (rcvd == 0)
-		fprintf(stderr,"Client disconnected upexpectedly.\n");
+  // else if (rcvd == 0)
+	// 	fprintf(stderr,"Client disconnected upexpectedly.\n");
 	
   // message received
   else{
     // logs the client request to terminal
-    
     // retrieves and prints client IP address
     inet_ntop(AF_INET, &(client.sin_addr), dst, INET_ADDRSTRLEN);
     fprintf(stdout, "%s ", dst);
