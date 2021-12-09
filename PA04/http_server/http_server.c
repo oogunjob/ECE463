@@ -19,7 +19,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include <ctype.h> // ask if this is allowed ?
+#include <ctype.h>
 
 #define MYPORT 8080 /* server should bind to port 8080 */
                     /* bind to IP address INADDR_ANY */
@@ -31,7 +31,7 @@
 
 #define MAXLINE 4096 /* Maximum chunk size */
 
-void respond(int client_sock); // need to rename this function
+void respond(int client_sock, struct sockaddr_in client); // need to rename this function
 
 int main(){
 	int sockfd , client_sock;
@@ -65,7 +65,7 @@ int main(){
   while(1){
     socklen_t addrlen = sizeof(client);
     client_sock = accept(sockfd, (struct sockaddr *)&client, &addrlen);
-
+    
     if(client_sock < 0){
       perror("accept");
       exit(1);
@@ -74,7 +74,7 @@ int main(){
     // need to check with TA about this part, when does the connection end?
     else{
       if(fork() == 0){
-        respond(client_sock);
+        respond(client_sock, client);
       }
     }
   }
@@ -82,9 +82,10 @@ int main(){
 	return 0;
 }
 
-void respond(int client_sock){
+void respond(int client_sock, struct sockaddr_in client){
   char* ROOT = "Webpage"; // web root directory
 
+  char dst[INET_ADDRSTRLEN];
 	char clientMessage[99999], *requestLine[3], data_to_send[MAXLINE], path[99999];
   int file;
 	int rcvd, bytes_read;
@@ -104,6 +105,11 @@ void respond(int client_sock){
   // message received
   else{
     // logs the client request to terminal
+    
+    // retrieves and prints client IP address
+    inet_ntop(AF_INET, &(client.sin_addr), dst, INET_ADDRSTRLEN);
+    fprintf(stdout, "%s ", dst);
+
     int i = 0;
     
     fprintf(stdout, "\"");
@@ -119,8 +125,8 @@ void respond(int client_sock){
     // if the first line of the request was a GET request, look for the file requested in web root
 		if(strncmp(requestLine[0], "GET\0", 4) == 0){ 
 			
-      requestLine[1] = strtok (NULL, " \t"); // file requested
-			requestLine[2] = strtok (NULL, " \t\n"); // HTTP version
+      requestLine[1] = strtok(NULL, " \t"); // file requested
+			requestLine[2] = strtok(NULL, " \t\n"); // HTTP version
 
       // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad
 			if(strncmp(requestLine[2], "HTTP/1.0", 8) != 0 && strncmp(requestLine[2], "HTTP/1.1", 8) != 0){
@@ -149,7 +155,7 @@ void respond(int client_sock){
         // indication that the requested path was NOT found in the web root
 				else{
             fprintf(stdout, "404 Not Found\n");
-            ret = write(client_sock, "HTTP/1.0 404 Not Found\n", 23);
+            ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
         }
 			}
 		}
