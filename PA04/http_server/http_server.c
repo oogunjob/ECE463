@@ -198,14 +198,13 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
           fprintf(stdout, "BYTES READ: %d\n", n);
 
           send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
-					ret = write(client_sock, buffer, bytes_read);
-        }
+          ret = write(client_sock, buffer, n);
       }
 
         // indication that the requested path was NOT found in the web root nor data base
 				else{
             fprintf(stdout, "404 Not Found\n");
-            send(client_sock, "HTTP/1.0 404 Not Found\n\n", 24, 0);
+            send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
             ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
         }
 			}
@@ -214,6 +213,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
     // indicates that the request was NOT a GET method (POST, HEAD, PUT)
     else{
         fprintf(stdout, "501 Not Implemented\n");
+        send(client_sock, "HTTP/1.0 501 Not Implemented\r\n", 30, 0);
         ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
     }
 	}
@@ -221,7 +221,4 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 	// closes socket
 	shutdown(client_sock, SHUT_RDWR);
 	close(client_sock);
-
-  // shutdown(database_sock, SHUT_RDWR);
-  // close(database_sock);
 }
