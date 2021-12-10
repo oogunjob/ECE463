@@ -197,10 +197,17 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 
           fprintf(stdout, "BYTES READ: %d\n", n);
 
+
           send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
           while((bytes_read = read(database_sock, buffer, MAXLINE)) > 0){
 						ret = write(client_sock, buffer, bytes_read);
-            fprintf(stdout, "Return value: %d\n", ret);
+            
+            if(ret == 4){
+              fprintf(stdout, "it left");
+              break;
+            }
+
+
           }
       }
 
