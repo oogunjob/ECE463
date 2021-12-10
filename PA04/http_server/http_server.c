@@ -43,6 +43,8 @@ int main(){
 		exit(1);
 	}
 	
+  // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&server, sizeof(server));
+
 	// creation of the the sockaddr_in structure for server
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = INADDR_ANY;
@@ -177,24 +179,35 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
             if(filename[j] == '+')
               filename[j] = ' ';
           }
+          
+          fprintf(stdout, "\"");
+          fprintf(stdout, "%s", filename);
+          fprintf(stdout, "\"");
 
-          int testNum = sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database));
-          fprintf(stdout, "Send value: %d\n", testNum);
+          if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
+            perror("sendto");
+          }
+
 
           // receive server's response
           fprintf(stdout, "Message from server: ");
           int len;
           char buffer[MAXLINE];
           int n = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
-          
-          // fprintf(stdout, "%s\n", buffer);
 
+          fprintf(stdout, "BYTES READ: %d\n", n);
+
+          send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
+          while((bytes_read = read(database_sock, buffer, MAXLINE)) > 0){
+						ret = write(client_sock, buffer, bytes_read);
+            fprintf(stdout, "Return value: %d\n", ret);
+          }
       }
 
         // indication that the requested path was NOT found in the web root nor data base
 				else{
             fprintf(stdout, "404 Not Found\n");
-            //send(client_sock, "HTTP/1.0 404 Not Found\n\n", 24, 0);
+            send(client_sock, "HTTP/1.0 404 Not Found\n\n", 24, 0);
             ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
         }
 			}
@@ -211,7 +224,6 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 	shutdown(client_sock, SHUT_RDWR);
 	close(client_sock);
 
-
-  shutdown(database_sock, SHUT_RDWR);
-  close(database_sock);
+  // shutdown(database_sock, SHUT_RDWR);
+  // close(database_sock);
 }
