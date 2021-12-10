@@ -95,10 +95,12 @@ void respond(int client_sock, struct sockaddr_in client){
 	rcvd = recv(client_sock, clientMessage, 99999, 0);
 
   // error receiving message
-	if (rcvd < 0)
-		fprintf(stderr,("recv() error\n"));
+  if(rcvd < 0){
+    perror("rcvd");
+    exit(1);
+  }
 	
-  // no longer receivng messages, is this needed?
+  // no longer receivng messages, is this needed ?
   // else if (rcvd == 0)
 	// 	fprintf(stderr,"Client disconnected upexpectedly.\n");
 	
@@ -108,11 +110,9 @@ void respond(int client_sock, struct sockaddr_in client){
     // retrieves and prints client IP address
     inet_ntop(AF_INET, &(client.sin_addr), dst, INET_ADDRSTRLEN);
     fprintf(stdout, "%s ", dst);
+    fprintf(stdout, "\"");
 
     int i = 0;
-    
-    fprintf(stdout, "\"");
-    
     while(isprint(clientMessage[i])){
 		  fprintf(stdout, "%c", clientMessage[i++]);
 	  }
@@ -150,6 +150,9 @@ void respond(int client_sock, struct sockaddr_in client){
           while((bytes_read = read(file, data_to_send, MAXLINE)) > 0)
 						ret = write(client_sock, data_to_send, bytes_read);
 				}
+
+        // need to check if the path contains ?key
+        // search in data base
 
         // indication that the requested path was NOT found in the web root
 				else{
