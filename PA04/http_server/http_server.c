@@ -119,17 +119,18 @@ void respond(int client_sock, struct sockaddr_in client){
 
     fprintf(stdout, "\" ");
     
-    requestLine[0] = strtok(clientMessage, " \t\n"); // GET request
+    requestLine[0] = strtok(clientMessage, " \t\n"); // method that was used in request
 
-    // if the first line of the request was a GET request, look for the file requested in web root
+    // if the first line of the request was a GET method, look for the file requested in web root
 		if(strncmp(requestLine[0], "GET\0", 4) == 0){ 
 			
       requestLine[1] = strtok(NULL, " \t"); // file requested
 			requestLine[2] = strtok(NULL, " \t\n"); // HTTP version
 
-      // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad
+      // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad, ask TA about this
 			if(strncmp(requestLine[2], "HTTP/1.0", 8) != 0 && strncmp(requestLine[2], "HTTP/1.1", 8) != 0){
-				ret = write(client_sock, "HTTP/1.0 400 Bad Request\n", 25);
+          fprintf(stdout, "501 Not Implemented\n");
+          ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
 			}
 
 			else{
@@ -153,14 +154,23 @@ void respond(int client_sock, struct sockaddr_in client){
 
         // need to check if the path contains ?key
         // search in data base
+        // else if ("?key" in path){
+        // use the data base
+        // }
 
-        // indication that the requested path was NOT found in the web root
+        // indication that the requested path was NOT found in the web root nor data base
 				else{
             fprintf(stdout, "404 Not Found\n");
             ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
         }
 			}
 		}
+
+    // indicates that the request was NOT a GET method (POST, HEAD, PUT)
+    else{
+        fprintf(stdout, "501 Not Implemented\n");
+        ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
+    }
 	}
 
 	// closes socket
