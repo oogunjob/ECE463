@@ -177,23 +177,19 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
             if(filename[j] == '+')
               filename[j] = ' ';
           }
+
+          int testNum = sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database));
+          fprintf(stdout, "Send value: %d\n", testNum);
+
+          // receive server's response
+          fprintf(stdout, "Message from server: ");
+          int len;
+          char buffer[MAXLINE];
+          int n = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
           
-        fprintf(stdout, "\"");
-        fprintf(stdout, "%s\n", filename);
-        fprintf(stdout, "\"");
+          // fprintf(stdout, "%s\n", buffer);
 
-        int testNum = sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database));
-        fprintf(stdout, "Send value: %d\n", testNum);
-
-        // receive server's response
-        fprintf(stdout, "Message from server: ");
-        int len;
-        char buffer[MAXLINE];
-        int n = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
-
-
-        fprintf(stdout, "%s\n", buffer);
-        }
+      }
 
         // indication that the requested path was NOT found in the web root nor data base
 				else{
