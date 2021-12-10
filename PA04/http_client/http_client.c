@@ -34,7 +34,7 @@ char* getFileName(char* filepath){
     return filename; // returns filename
 }
 
-int computeFileSize(int sock){
+int FindContentLength(int sock){
     
     char buffer[1024] = {0};
     char* ptr = buffer + 4;
@@ -43,7 +43,7 @@ int computeFileSize(int sock){
     
     while(bytesReceived = recv(sock, ptr, 1, 0)){
         if(bytesReceived < 0){
-            perror("computeFileSize");
+            perror("FindContentLength");
             exit(1);
         }
 
@@ -57,17 +57,17 @@ int computeFileSize(int sock){
     ptr = buffer + 4;
 
     if(bytesReceived){
-        ptr = strstr(ptr,"fileSize");
+        ptr = strstr(ptr,"Content-Length");
         
         if(ptr){
             sscanf(ptr,"%*s %d",&bytesReceived);
         }
         else{
-            bytesReceived = -1;
+            bytesReceived = 0;
         }
     }
 
-    return bytesReceived; // returns the number of bytes received
+    return bytesReceived; // Content-Length
 }
 
 int HTTPStatus(int sock){
@@ -95,10 +95,8 @@ int HTTPStatus(int sock){
 
     sscanf(ptr,"%*s %d ", &status);
 
-    printf("%s\n",ptr); // prints the status of the connection *** confirm with TA ***
-
     if(bytesReceived > 0){
-        return status; // returns file status size
+        return status; // returns HTTP status code
     }
 
     return 0;
@@ -154,13 +152,13 @@ int main(int argc, char *argv[]){
         exit(1); 
     }
     
-    int fileSize; // size of the file being downloaded
+    int contentLength; // size of the file being downloaded
 
-    if(HTTPStatus(sock) && (fileSize = computeFileSize(sock))){
+    if(HTTPStatus(sock) && (contentLength = FindContentLength(sock))){
 
         int bytes = 0; // current number of bytes written to file
 
-        file = fopen(filename, "w"); // opens the file to be downloaded
+        file = fopen(filename, "w"); // opens the file to be written to
 
         while(bytesReceived = recv(sock, recv_data, 1024, 0)){
             if(bytesReceived < 0){
@@ -173,13 +171,17 @@ int main(int argc, char *argv[]){
             bytes += bytesReceived;
 
             // stops receiving bytes when the number of current bytes reaches file size
-            if(bytes == fileSize){
+            if(bytes == contentLength){
                 break;
             }
         }
 
-        // printf("Content-Length: %d\n", bytes); *** confirm with TA tomorrow ***
         fclose(file); // closes the file
+    }
+    
+    else if(contentLength == 0){
+        fprintf(stdout, "Error: could not download the requested file (file length unknown)\n"); // new line character needed?
+        // exit(1); // ?
     }
 
     close(sock); // closes the socket
