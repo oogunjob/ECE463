@@ -16,6 +16,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define MAXDATA 1024
+
 char* getFileName(char* filepath);
 int HTTPStatus(int sock);
 int computeFileSize(int sock);
@@ -36,7 +38,7 @@ char* getFileName(char* filepath){
 
 int FindContentLength(int sock){
     
-    char buffer[1024] = {0};
+    char buffer[MAXDATA] = {0};
     char* ptr = buffer + 4;
     
     int bytesReceived;
@@ -72,7 +74,7 @@ int FindContentLength(int sock){
 
 int HTTPStatus(int sock){
 
-    char buffer[1024] = {0};
+    char buffer[MAXDATA] = {0};
     char* ptr = buffer + 1;
     
     int bytesReceived;
@@ -121,8 +123,8 @@ int main(int argc, char *argv[]){
     struct hostent *host;
 
     int bytesReceived;
-    char send_data[1024];
-    char recv_data[1024];
+    char send_data[MAXDATA];
+    char recv_data[MAXDATA];
 
 	if ((host = gethostbyname(domain)) == NULL) {
 		herror("gethostbyname");
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]){
 
         file = fopen(filename, "w"); // opens the file to be written to
 
-        while(bytesReceived = recv(sock, recv_data, 1024, 0)){
+        while(bytesReceived = recv(sock, recv_data, MAXDATA, 0)){
             if(bytesReceived < 0){
                 perror("recieve");
                 exit(1);

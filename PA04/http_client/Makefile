@@ -12,10 +12,10 @@ test1: http_client
 	./http_client www.gnu.org 80 /software/make/manual/make.html
 
 test2: http_client
-	./http_client www.gnu.org 80 /software/make/manual/make.pdf
+	./http_client www.gnu.org 80 /software/make/manual/Tosin.pdf
 
 memory: http_client
-	$(VAL) ./http_client www.gnu.org 80 /software/make/manual/make.html
+	$(VAL) ./http_client www.gnu.org 80 /software/make/manual/Tosin.html
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
