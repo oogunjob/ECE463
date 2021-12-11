@@ -194,7 +194,16 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 
           send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
           while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
+            if (strstr(buffer, "File Not Found") != NULL){
+              fprintf(stdout, " 404 Not Found\n");
+              send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
+              ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
+              break;
+            }
+            
             if (strstr(buffer, "DONE") != NULL){
+              fprintf(stdout, " 200 OK\n");
+					    send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
               break;
             }
 						ret = write(client_sock, buffer, bytes_read);
