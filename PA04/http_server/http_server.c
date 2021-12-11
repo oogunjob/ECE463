@@ -179,10 +179,6 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
             if(filename[j] == '+')
               filename[j] = ' ';
           }
-          
-          fprintf(stdout, "\"");
-          fprintf(stdout, "%s", filename);
-          fprintf(stdout, "\"");
 
           if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
             perror("sendto");
@@ -192,29 +188,33 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
           int len;
           char buffer[MAXLINE];
 
-          send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
-          while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
-            if (strstr(buffer, "File Not Found") != NULL){
-              fprintf(stdout, " 404 Not Found\n");
-              send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
-              ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
-              break;
-            }
-            
-            if (strstr(buffer, "DONE") != NULL){
-              fprintf(stdout, " 200 OK\n");
-					    send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
-              break;
-            }
-						ret = write(client_sock, buffer, bytes_read);
+          bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
+
+          if (strstr(buffer, "File Not Found") != NULL){
+            fprintf(stdout, " 404 Not Found\n");
+            send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
+            ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
           }
-      }
+          else{
+            send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
+            ret = write(client_sock, buffer, bytes_read);
+
+            while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
+              if (strstr(buffer, "DONE") != NULL){
+                fprintf(stdout, " 200 OK\n");
+                send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
+                break;
+              }
+						  ret = write(client_sock, buffer, bytes_read);
+            }
+          }
+        }
 
         // indication that the requested path was NOT found in the web root nor data base
 				else{
             fprintf(stdout, "404 Not Found\n");
-            send(client_sock, "HTTP/1.0 404 Not Found\n\n", 24, 0);
-            ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>401 Not Found</h1></body></html>", 74);
+            send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
+            ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
         }
 			}
 		}
