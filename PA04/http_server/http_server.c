@@ -163,8 +163,6 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 				strcpy(path, WEBROOT);
 				strcpy(&path[strlen(WEBROOT)], requestLine[1]);
 
-        fprintf(stdout, "%s", path);
-
         // indication that the requested path was found in the web root
 				if((file = open(path, O_RDONLY)) > 0){
           fprintf(stdout, "200 OK\n");
