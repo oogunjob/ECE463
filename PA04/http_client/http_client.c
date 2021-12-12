@@ -123,10 +123,15 @@ char* getFileName(char* filepath){
     
     // extracts filename from path
     for (; filename > filepath; filename--){
-        if ((*filename == '\\') || (*filename == '/')){
+        if((*filename == '\\') || (*filename == '/')){
             filename++;
             break;
         }
+    }
+
+    //if the filename's first character is a '/', remove it
+    if(filename[0] == '/'){
+        filename++;
     }
     
     return filename; // returns filename
@@ -137,15 +142,15 @@ int CheckContentLength(int sock){
     char* ptr = buff + 4;
     
     int bytes_received;
-    int status;
+    int contentLength;
     
     while(bytes_received = recv(sock, ptr, 1, 0)){
-        if(bytes_received==-1){
-            perror("Parse Header");
+        if(bytes_received == -1){
+            perror("CheckContentLength");
             exit(1);
         }
 
-        if((ptr[-3]=='\r')  && (ptr[-2]=='\n' ) && (ptr[-1]=='\r')  && (*ptr=='\n')) 
+        if((ptr[-3] =='\r')  && (ptr[-2] =='\n' ) && (ptr[-1] == '\r')  && (*ptr == '\n')) 
             break;
         
         ptr++;
@@ -154,18 +159,21 @@ int CheckContentLength(int sock){
     *ptr = 0;
     ptr = buff + 4;
 
+    // checks if the content legnth was in the response header
     if(bytes_received){
         ptr = strstr(ptr,"Content-Length:");
         if(ptr){
-            sscanf(ptr,"%*s %d",&bytes_received);
+            // stores the content length
+            sscanf(ptr,"%*s %d", &contentLength);
         }
+
+        // Content-Length was not present in the server response
         else{
-            // Content-Length was not present in the server response
-            bytes_received = -1;
+            contentLength = -1;
         }
     }
     
-    return bytes_received;
+    return contentLength;
 }
 
 int CheckStatus(int sock){
@@ -174,9 +182,10 @@ int CheckStatus(int sock){
     char* ptr = buff + 1;
     int bytes_received, status;
 
+    // retrieves the server response
     while(bytes_received = recv(sock, ptr, 1, 0)){
         if(bytes_received == -1){
-            perror("ReadHttpStatus");
+            perror("CheckStatus");
             exit(1);
         }
 
@@ -184,11 +193,13 @@ int CheckStatus(int sock){
         ptr++;
     }
 
-    *ptr=0;
+    *ptr = 0;
     ptr = buff + 1;
 
+    // retrieves the status code
     sscanf(ptr,"%*s %d ", &status);
 
+    // if the status repsonse was not 200, print what it was
     if(status != 200){
         printf("%s\n", ptr);
     }
