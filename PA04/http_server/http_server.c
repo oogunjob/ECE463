@@ -70,6 +70,14 @@ int main(){
 		exit(1);
 	}
 
+  struct timeval timeout;      
+  timeout.tv_sec = 5;
+  timeout.tv_usec = 0;
+
+  if (setsockopt(database_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0){
+    perror("setsockopt failed");
+  }
+
   struct hostent *he;
   if ((he = gethostbyname(DBADDR)) == NULL) {
 		perror("gethostbyname");
@@ -184,23 +192,6 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
               filename[j] = ' ';
           }
 
-          // TESTING SOMETHING 
-          struct timeval timeout;      
-          timeout.tv_sec = 2;
-          timeout.tv_usec = 0;
-    
-          if (setsockopt(database_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0){
-            fprintf(stdout, "The shit failed\n");
-            perror("setsockopt failed");
-          }
-
-          if (setsockopt(database_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0){
-            fprintf(stdout, "The shit failed\n");
-            perror("setsockopt failed\n");
-          }
-
-          ////////////////////////
-
           // send's the request to the databsae
           if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
             perror("sendto");
@@ -209,12 +200,18 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
           int len; // length of the database struct
           char buffer[MAXLINE]; // buffer to store the response from the database
 
-          // receive server's response
-
+          // receive database's response
           bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
 
+          // checks for a 408 Request Timeout if it takes longer than 5 seconds to make a connection the database
+          if(errno == EAGAIN || errno == EWOULDBLOCK){
+              fprintf(stdout, "408 Request Timeout\n");
+              send(client_sock, "HTTP/1.0 408 Request Timeout\r\n", 30, 0);
+              ret = write(client_sock, "HTTP/1.0 408 Request Timeout\r\n\r\n<html><body><h1>408 Request Timeout</h1></body></html>", 86);
+          }
+
           // if the file was not found, return a 404 erorr code as indication
-          if (strstr(buffer, "File Not Found") != NULL){
+          else if (strstr(buffer, "File Not Found") != NULL){
             fprintf(stdout, " 404 Not Found\n");
             send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
             ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
