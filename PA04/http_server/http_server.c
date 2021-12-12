@@ -35,7 +35,7 @@
 void respond(int client_sock, struct sockaddr_in client, int database_sock, struct sockaddr_in database);
 
 int main(){
-  int sockfd , client_sock, database_sock;
+	int sockfd , client_sock, database_sock;
 	struct sockaddr_in server , client;
 	
 	// creation of the TCP socket
@@ -43,8 +43,6 @@ int main(){
 		perror("socket");
 		exit(1);
 	}
-	
-  // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&server, sizeof(server));
 
 	// creation of the the sockaddr_in structure for server
 	server.sin_family = AF_INET;
@@ -52,7 +50,7 @@ int main(){
 	server.sin_port = htons(MYPORT);
   bzero(&(server.sin_zero), 8);
 	
-	// bind
+	// binds the connection from client to server
 	if (bind(sockfd, (struct sockaddr *) &server, sizeof(struct sockaddr)) < 0) {
 		perror("bind");
 		exit(1);
@@ -104,14 +102,13 @@ int main(){
       exit(1);
     }
 
-    // server responds to client request
     else{
       if(fork() == 0){
         respond(client_sock, client, database_sock, database);
       }
     }
   }
-
+	
 	return 0;
 }
 
@@ -124,7 +121,6 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 	int rcvd, bytes_read;
   int ret; // return value
 
-  // stores the client message in clientMessage buffer
 	memset((void*)clientMessage, (int)'\0', CLIENT_MAXLINE);
 	rcvd = recv(client_sock, clientMessage, CLIENT_MAXLINE, 0);
 
@@ -140,7 +136,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
     inet_ntop(AF_INET, &(client.sin_addr), dst, INET_ADDRSTRLEN);
     fprintf(stdout, "%s ", dst);
     
-    // prints the clients request to terminal
+    // prints the client's message to terminal
     int i = 0;
     fprintf(stdout, "\"");
     while(isprint(clientMessage[i])){
@@ -148,7 +144,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 	  }
     fprintf(stdout, "\" ");
     
-    requestLine[0] = strtok(clientMessage, " \t\n"); // method that was used in request (GET, HEAD, POST, etc)
+    requestLine[0] = strtok(clientMessage, " \t\n"); // method that was used in request (GET, POST, HEAD, etc.)
 
     // if the first line of the request was a GET method, look for the file requested in web root
 		if(strncmp(requestLine[0], "GET\0", 4) == 0){ 
@@ -156,30 +152,25 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
       requestLine[1] = strtok(NULL, " \t"); // file requested
 			requestLine[2] = strtok(NULL, " \t\n"); // HTTP version
 
-      // checks if the GET request has no '/' but still contains text (ex: "GET cutecat.jpg HTTP/1.0")
-      /*
-      else if(strncmp(requestLine[1], "/", 1) == 0){
-        fprintf(stdout, " 400 Bad Request\n");
-        send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
-        ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
+      // checks if the GET request has no '/' but still contains text (ex: "GET cutecat.jpg HTTP/1.0") or tries to access private content ("../" or "/..")
+      if(strncmp(requestLine[1], "/", 1) != 0 || strstr(requestLine[1], "../") != NULL || strstr(requestLine[1], "/..") != NULL){
+        fprintf(stdout, "400 Bad Request\n");
+        send(client_sock, "HTTP/1.0 400 Bad Request\r\n", 24, 0);
+        ret = write(client_sock, "HTTP/1.0 400 Bad Request\r\n\r\n<html><body><h1>400 Bad Request</h1></body></html>", 74);
       }
-      */
 
-      // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad
-			if(strncmp(requestLine[2], "HTTP/1.0", 8) != 0 && strncmp(requestLine[2], "HTTP/1.1", 8) != 0){
-        fprintf(stdout, "501 Not Implemented\n");
-        send(client_sock, "HTTP/1.0 501 Not Implemented\r\n", 30, 0);
-        ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
+      // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad, ask TA about this
+			else if(strncmp(requestLine[2], "HTTP/1.0", 8) != 0 && strncmp(requestLine[2], "HTTP/1.1", 8) != 0){
+          fprintf(stdout, "501 Not Implemented\n");
+          send(client_sock, "HTTP/1.0 501 Not Implemented\r\n", 30, 0);
+          ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
 			}
 
-      // if the protocol is supported and it is not a bad request, check if the server can carry out request
 			else{
         // if no specific file is specified, use index.html as the default page to display
-        if(strncmp(requestLine[1], "/\0", 2) == 0){
+				if(strncmp(requestLine[1], "/\0", 2) == 0)
 					requestLine[1] = "/index.html";
-        }
-        
-        // need to add else statement here to do the rest of the stuff ***
+
         // appends the file path to to the web root (Webpage)
 				strcpy(path, WEBROOT);
 				strcpy(&path[strlen(WEBROOT)], requestLine[1]);
@@ -187,7 +178,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
         // indication that the requested path was found in the web root
 				if((file = open(path, O_RDONLY)) > 0){
           fprintf(stdout, "200 OK\n");
-					send(client_sock, "HTTP/1.0 200 OK\r\n", 17, 0);
+					send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
 					
           // writes the contents of the file back to the client
           while((bytes_read = read(file, data_to_send, MAXLINE)) > 0)
@@ -205,7 +196,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
               filename[j] = ' ';
           }
 
-          // sends the filename to the database for searching
+          // send's the request to the databsae
           if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
             perror("sendto");
           }
