@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
                     break;
                 }
             }
+            
             fclose(file); // closes the file on completion
         }
 
