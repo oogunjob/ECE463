@@ -16,8 +16,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#include <ctype.h>
-
 #define MAXBUFFER 4096
 
 char* getFileName(char* filepath);
