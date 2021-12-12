@@ -248,6 +248,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
     // indicates that the request was NOT a GET method (POST, HEAD, PUT)
     else{
         fprintf(stdout, "501 Not Implemented\n");
+        send(client_sock, "HTTP/1.0 501 Not Implemented\r\n", 30, 0);
         ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
     }
 	}
