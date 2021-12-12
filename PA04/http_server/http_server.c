@@ -227,7 +227,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
               fprintf(stdout, "404 Not Found\n");
               send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
               ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
-            }
+            } 
 
             // if the picture was successfully found, return a 200 success message and send the response back to the server
             else{
