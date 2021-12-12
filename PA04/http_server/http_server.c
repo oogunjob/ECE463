@@ -32,7 +32,7 @@
 #define MAXLINE 4096 /* Maximum chunk size */
 #define CLIENT_MAXLINE 99999 /* Maximum message size */
 
-void respond(int client_sock, struct sockaddr_in client, int database_sock, struct sockaddr_in database); // need to rename this function
+void respond(int client_sock, struct sockaddr_in client, int database_sock, struct sockaddr_in database);
 
 int main(){
 	int sockfd , client_sock, database_sock;
