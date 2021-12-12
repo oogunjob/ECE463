@@ -43,8 +43,6 @@ int main(){
 		perror("socket");
 		exit(1);
 	}
-	
-  // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&server, sizeof(server));
 
 	// creation of the the sockaddr_in structure for server
 	server.sin_family = AF_INET;
@@ -52,7 +50,7 @@ int main(){
 	server.sin_port = htons(MYPORT);
   bzero(&(server.sin_zero), 8);
 	
-	// bind
+	// binds the connection from client to server
 	if (bind(sockfd, (struct sockaddr *) &server, sizeof(struct sockaddr)) < 0) {
 		perror("bind");
 		exit(1);
@@ -64,8 +62,7 @@ int main(){
 		exit(1);
 	}
 
-  ////////////////////////////////////////////////
-  // creation of UDP socket *** Office Hours ****
+  // creation of UDP socket
   struct sockaddr_in database;
 	
   if ((database_sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -82,7 +79,6 @@ int main(){
   database.sin_family = AF_INET;
   database.sin_addr = *((struct in_addr *)he->h_addr_list[0]);
   database.sin_port = htons(DBPORT);
-  ////////////////////////////////////////////////
 
   // accepts all incoming connections from the client
   while(1){
@@ -94,7 +90,6 @@ int main(){
       exit(1);
     }
 
-    // need to check with TA about this part, when does the connection end?
     else{
       if(fork() == 0){
         respond(client_sock, client, database_sock, database);
@@ -128,16 +123,16 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
     // retrieves and prints client IP address
     inet_ntop(AF_INET, &(client.sin_addr), dst, INET_ADDRSTRLEN);
     fprintf(stdout, "%s ", dst);
-    fprintf(stdout, "\"");
-
+    
+    // prints the client's message to terminal
     int i = 0;
+    fprintf(stdout, "\"");
     while(isprint(clientMessage[i])){
 		  fprintf(stdout, "%c", clientMessage[i++]);
 	  }
-
     fprintf(stdout, "\" ");
     
-    requestLine[0] = strtok(clientMessage, " \t\n"); // method that was used in request
+    requestLine[0] = strtok(clientMessage, " \t\n"); // method that was used in request (GET, POST, HEAD, etc.)
 
     // if the first line of the request was a GET method, look for the file requested in web root
 		if(strncmp(requestLine[0], "GET\0", 4) == 0){ 
@@ -155,6 +150,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
       // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad, ask TA about this
 			else if(strncmp(requestLine[2], "HTTP/1.0", 8) != 0 && strncmp(requestLine[2], "HTTP/1.1", 8) != 0){
           fprintf(stdout, "501 Not Implemented\n");
+          send(client_sock, "HTTP/1.0 501 Not Implemented\r\n", 30, 0);
           ret = write(client_sock, "HTTP/1.0 501 Not Implemented\r\n\r\n<html><body><h1>501 Not Implemented</h1></body></html>", 86);
 			}
 
@@ -166,6 +162,8 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
         // appends the file path to to the web root (Webpage)
 				strcpy(path, WEBROOT);
 				strcpy(&path[strlen(WEBROOT)], requestLine[1]);
+
+        fprintf(stdout, "%s", path);
 
         // indication that the requested path was found in the web root
 				if((file = open(path, O_RDONLY)) > 0){
@@ -188,21 +186,25 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
               filename[j] = ' ';
           }
 
+          // send's the request to the databsae
           if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
             perror("sendto");
           }
 
-          // receive server's response
-          int len;
-          char buffer[MAXLINE];
+          int len; // length of the database struct
+          char buffer[MAXLINE]; // buffer to store the response from the database
 
+          // receive server's response
           bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
 
+          // if the file was not found, return a 404 erorr code as indication
           if (strstr(buffer, "File Not Found") != NULL){
             fprintf(stdout, " 404 Not Found\n");
             send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
             ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
           }
+
+          // if the picture was successfully found, return a 200 success message and send the response back to the server
           else{
             send(client_sock, "HTTP/1.0 200 OK\r\nContent-Type: image/jpeg\r\n\r\n", 45, 0);
             ret = write(client_sock, buffer, bytes_read);
@@ -237,7 +239,4 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 	// closes socket
 	shutdown(client_sock, SHUT_RDWR);
 	close(client_sock);
-
-  // shutdown(database_sock, SHUT_RDWR);
-  // close(database_sock);
 }
