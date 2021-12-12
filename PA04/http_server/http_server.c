@@ -224,7 +224,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 
             // if the file was not found, return a 404 erorr code as indication
             else if (strstr(buffer, "File Not Found") != NULL){
-              fprintf(stdout, " 404 Not Found\n");
+              fprintf(stdout, "404 Not Found\n");
               send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
               ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
             }
@@ -236,7 +236,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
 
               while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
                 if(strstr(buffer, "DONE") != NULL){
-                  fprintf(stdout, " 200 OK\n");
+                  fprintf(stdout, "200 OK\n");
                   send(client_sock, "HTTP/1.0 200 OK\r\n", 17, 0);
                   break;
                 }
