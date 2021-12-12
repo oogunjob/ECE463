@@ -178,8 +178,22 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
         // indication that the requested path was found in the web root
 				if((file = open(path, O_RDONLY)) > 0){
           fprintf(stdout, "200 OK\n");
-					send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
-					
+          struct stat *buf = malloc(sizeof(struct stat));
+          stat(path, buf);
+          int size = buf->st_size;
+          free(buf);
+
+          int sizeLen = snprintf( NULL, 0, "%d", size);
+          char* sizeStr = malloc(sizeLen + 1);
+          snprintf(sizeStr, sizeLen + 1, "%d", size);
+          char *final = "HTTP/1.0 200 OK\n\nContent-Length: ";
+          
+          char result[strlen(final) + sizeLen];
+          strncat(result,final, strlen(final));
+          strncat(result,sizeStr, sizeLen);
+
+					send(client_sock, result, strlen(final) + sizeLen, 0);
+          free(sizeStr);
           // writes the contents of the file back to the client
           while((bytes_read = read(file, data_to_send, MAXLINE)) > 0)
 						ret = write(client_sock, data_to_send, bytes_read);
