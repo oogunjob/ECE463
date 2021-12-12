@@ -208,7 +208,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
             ret = write(client_sock, buffer, bytes_read);
 
             while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
-              if (strstr(buffer, "DONE") != NULL){
+              if(strstr(buffer, "DONE") != NULL){
                 fprintf(stdout, " 200 OK\n");
                 send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
                 break;
