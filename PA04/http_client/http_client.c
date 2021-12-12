@@ -16,6 +16,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <ctype.h>
+
 #define MAXBUFFER 4096
 
 char* getFileName(char* filepath);
@@ -79,12 +81,11 @@ int main(int argc, char *argv[])
         exit(1); 
     }
 
-    // first thing that needs to to be done is check the http status
-    // IF THE RESPONSE IS NOT 200, PRINT IT AND EXIT THE PROGRAM'
+    // check if the response status was '200 OK'
     if(CheckStatus(sock) == 200){
         
-        // if the response is 200 OK, check if the content size is correct and save the content to a filepath
-        if(contentLength = CheckContentLength(sock)){
+        // if the response is 200 OK, check if the Content-Length was valid, if so write the file
+        if(contentLength = CheckContentLength(sock) && contentLength != -1){
             // save to the file path
             
             int bytes = 0; // current number of bytes written to file
@@ -106,19 +107,13 @@ int main(int argc, char *argv[])
             fclose(file); // closes the file on completion
         }
 
-        // if the resonse did not contain the content length, print an error message
+        // if the response did not contain the content length, print an error message
         else{
             fprintf(stdout, "Error: could not download the requested file (file length unknown)\n");
         }
-
-    // prints the first line of the response from the server
-    }
-    else{
-        fprintf(stdout, "The server responded with: \n");
     }
     
     close(sock); // closes the socket
-    
     return 0;
 }
 
@@ -134,20 +129,16 @@ char* getFileName(char* filepath){
         }
     }
     
-    fprintf(stdout, "%s\n", filename);
     return filename; // returns filename
 }
 
 int CheckContentLength(int sock){
-    char c;
-    
     char buff[MAXBUFFER] = "";
-    char* ptr= buff + 4;
+    char* ptr = buff + 4;
     
     int bytes_received;
     int status;
     
-    printf("Begin HEADER ..\n");
     while(bytes_received = recv(sock, ptr, 1, 0)){
         if(bytes_received==-1){
             perror("Parse Header");
@@ -162,19 +153,17 @@ int CheckContentLength(int sock){
 
     *ptr = 0;
     ptr = buff + 4;
-    //printf("%s",ptr);
 
     if(bytes_received){
         ptr = strstr(ptr,"Content-Length:");
         if(ptr){
             sscanf(ptr,"%*s %d",&bytes_received);
-
-        }else
-            bytes_received=-1; //unknown size
-
-       printf("Content-Length: %d\n",bytes_received);
+        }
+        else{
+            // Content-Length was not present in the server response
+            bytes_received = -1;
+        }
     }
-    printf("End HEADER ..\n");
     
     return bytes_received;
 }
@@ -200,8 +189,9 @@ int CheckStatus(int sock){
 
     sscanf(ptr,"%*s %d ", &status);
 
-    printf("%s\n", ptr); // prints entire messsage, NEED TO REMOVE
-    printf("status = %d\n",status); // prints what the status of the request was, NEED TO REMOVE
+    if(status != 200){
+        printf("%s\n", ptr);
+    }
 
     return status; // returns the HTTP Status code
 }
