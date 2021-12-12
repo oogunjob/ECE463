@@ -30,6 +30,7 @@
 #define DBPORT 53004
 
 #define MAXLINE 4096 /* Maximum chunk size */
+#define CLIENT_MAXLINE 99999 /* Maximum message size */
 
 void respond(int client_sock, struct sockaddr_in client, int database_sock, struct sockaddr_in database); // need to rename this function
 
@@ -108,13 +109,13 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
   char* WEBROOT = "Webpage"; // web root directory
 
   char dst[INET_ADDRSTRLEN];
-	char clientMessage[99999], *requestLine[3], data_to_send[MAXLINE], path[MAXLINE];
+	char clientMessage[CLIENT_MAXLINE], *requestLine[3], data_to_send[MAXLINE], path[MAXLINE];
   int file;
 	int rcvd, bytes_read;
   int ret; // return value
 
-	memset((void*)clientMessage, (int)'\0', 99999);
-	rcvd = recv(client_sock, clientMessage, 99999, 0);
+	memset((void*)clientMessage, (int)'\0', CLIENT_MAXLINE);
+	rcvd = recv(client_sock, clientMessage, CLIENT_MAXLINE, 0);
 
   // error receiving message
   if(rcvd < 0){
