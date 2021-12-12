@@ -144,11 +144,11 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
       requestLine[1] = strtok(NULL, " \t"); // file requested
 			requestLine[2] = strtok(NULL, " \t\n"); // HTTP version
 
-      // checks if the GET request has no '/' but still contains text (ex: "GET cutecat.jpg HTTP/1.0")
-      if(strncmp(requestLine[1], "/", 1) != 0){
-        fprintf(stdout, " 400 Bad Request\n");
-        send(client_sock, "HTTP/1.0 404 Not Found\r\n", 24, 0);
-        ret = write(client_sock, "HTTP/1.0 404 Not Found\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>", 74);
+      // checks if the GET request has no '/' but still contains text (ex: "GET cutecat.jpg HTTP/1.0") or tries to access private content ("../" or "/..")
+      if(strncmp(requestLine[1], "/", 1) != 0 || strstr(requestLine[1], "../") != NULL || strstr(requestLine[1], "/..") != NULL){
+        fprintf(stdout, "400 Bad Request\n");
+        send(client_sock, "HTTP/1.0 400 Bad Request\r\n", 24, 0);
+        ret = write(client_sock, "HTTP/1.0 400 Bad Request\r\n\r\n<html><body><h1>400 Bad Request</h1></body></html>", 74);
       }
 
       // if the the protocol is neither HTTP/1.0 or HTTP/1.1, indicate that the request is bad, ask TA about this
