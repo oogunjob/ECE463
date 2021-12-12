@@ -184,6 +184,23 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
               filename[j] = ' ';
           }
 
+          // TESTING SOMETHING 
+          struct timeval timeout;      
+          timeout.tv_sec = 2;
+          timeout.tv_usec = 0;
+    
+          if (setsockopt(database_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0){
+            fprintf(stdout, "The shit failed\n");
+            perror("setsockopt failed");
+          }
+
+          if (setsockopt(database_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0){
+            fprintf(stdout, "The shit failed\n");
+            perror("setsockopt failed\n");
+          }
+
+          ////////////////////////
+
           // send's the request to the databsae
           if(sendto(database_sock, (const char*)filename, strlen(filename), 0, (const struct sockaddr*)&database, sizeof(database)) < 0){
             perror("sendto");
@@ -193,6 +210,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
           char buffer[MAXLINE]; // buffer to store the response from the database
 
           // receive server's response
+
           bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len);
 
           // if the file was not found, return a 404 erorr code as indication
@@ -210,7 +228,7 @@ void respond(int client_sock, struct sockaddr_in client, int database_sock, stru
             while((bytes_read = recvfrom(database_sock, (char*)buffer, MAXLINE, 0, (struct sockaddr*)&database, &len)) > 0){
               if(strstr(buffer, "DONE") != NULL){
                 fprintf(stdout, " 200 OK\n");
-                send(client_sock, "HTTP/1.0 200 OK\n\n", 17, 0);
+                send(client_sock, "HTTP/1.0 200 OK\r\n", 17, 0);
                 break;
               }
 						  ret = write(client_sock, buffer, bytes_read);
