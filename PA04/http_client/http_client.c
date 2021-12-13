@@ -202,6 +202,7 @@ int CheckStatus(int sock){
 
     // if 200 OK was not received, print the error message from the server
     else{
+        sscanf(ptr,"%*s %d ", &status);
         fprintf(stdout, "%s\n", ptr);
     }
 
