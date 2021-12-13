@@ -16,106 +16,24 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#define MAXDATA 1024
+#define MAXBUFFER 4096
 
 char* getFileName(char* filepath);
-int HTTPStatus(int sock);
-int computeFileSize(int sock);
+int CheckStatus(int sock);
+int CheckContentLength(int sock);
 
-char* getFileName(char* filepath){
-    char *filename = filepath + strlen(filepath); // filename
-    
-    // extracts filename from path
-    for (; filename > filepath; filename--){
-        if ((*filename == '\\') || (*filename == '/')){
-            filename++;
-            break;
-        }
-    }
-
-    return filename; // returns filename
-}
-
-int FindContentLength(int sock){
-    
-    char buffer[MAXDATA] = {0};
-    char* ptr = buffer + 4;
-    
-    int bytesReceived;
-    
-    while(bytesReceived = recv(sock, ptr, 1, 0)){
-        if(bytesReceived < 0){
-            perror("FindContentLength");
-            exit(1);
-        }
-
-        if((ptr[-3] == '\r')  && (ptr[-2] == '\n' ) && (ptr[-1] == '\r')  && (*ptr == '\n')) 
-            break;
-        
-        ptr++;
-    }
-
-    *ptr = 0;
-    ptr = buffer + 4;
-
-    if(bytesReceived){
-        ptr = strstr(ptr,"Content-Length");
-        
-        if(ptr){
-            sscanf(ptr,"%*s %d",&bytesReceived);
-        }
-        else{
-            bytesReceived = 0;
-        }
-    }
-
-    return bytesReceived; // Content-Length
-}
-
-int HTTPStatus(int sock){
-
-    char buffer[MAXDATA] = {0};
-    char* ptr = buffer + 1;
-    
-    int bytesReceived;
-    int status;
-    
-    while(bytesReceived = recv(sock, ptr, 1, 0)){
-        if(bytesReceived < 0){
-            perror("HTTPStatus");
-            exit(1);
-        }
-
-        if((ptr[-1] == '\r') && (*ptr == '\n')) 
-            break;
-        
-        ptr++;
-    }
-
-    *ptr = 0;
-    ptr = buffer + 1;
-
-    sscanf(ptr,"%*s %d ", &status);
-
-    if(bytesReceived > 0){
-        return status; // returns HTTP status code
-    }
-
-    return 0;
-}
-
-int main(int argc, char *argv[]){
-    if (argc != 4){
+int main(int argc, char *argv[])
+{
+    if (argc != 4) {
         fprintf(stderr,"usage: ./http_client [host] [port number] [filepath]\n");
         exit(1);
     }
 
     // stores command line arguments in variables
     char* domain = argv[1];
-    int port = (int) strtol(argv[2], NULL, 10);
+    int PORT = (int) strtol(argv[2], NULL, 10);
     char* filepath = argv[3];
     char* filename = getFileName(filepath);
-    FILE* file = NULL;
 
     // variables for sock construction
     int sock;
@@ -123,70 +41,166 @@ int main(int argc, char *argv[]){
     struct hostent *host;
 
     int bytesReceived;
-    char send_data[MAXDATA];
-    char recv_data[MAXDATA];
+    char send_data[MAXBUFFER];
+    char recv_data[MAXBUFFER];
+    char clientMessage[MAXBUFFER];
+    int contentLength;
 
+    // connects to the host
 	if ((host = gethostbyname(domain)) == NULL) {
 		herror("gethostbyname");
 		exit(1);
 	}
 
+    // creation of TCP socket
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("socket");
 		exit(1);
 	}
 
+    // creates assignment of socket attributes
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);
+	server_addr.sin_port = htons(PORT);
 	server_addr.sin_addr = *((struct in_addr *)host->h_addr_list[0]);
 	bzero(&(server_addr.sin_zero), 8);
 	
+    // connection to the socket
     if (connect(sock, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) < 0) {
 		perror("connect");
 		exit(1);
 	}
 
-    // data to send to host
-    snprintf(send_data, sizeof(send_data), "GET /%s HTTP/1.1\r\nHost: %s\r\n\r\n", filepath, domain);
+    // GET request that is sent to the server
+    snprintf(send_data, sizeof(send_data), "GET /%s HTTP/1.1\r\nHost: %s:%s\r\n\r\n", filepath, domain, argv[2]);
 
+    // sends the request to the server
     if(send(sock, send_data, strlen(send_data), 0) < 0){
         perror("send");
         exit(1); 
     }
-    
-    int contentLength; // size of the file being downloaded
 
-    if(HTTPStatus(sock) && (contentLength = FindContentLength(sock))){
+    // check if the response status was '200 OK'
+    if(CheckStatus(sock) == 200){
+        
+        // if the response is 200 OK, check if the Content-Length was valid, if so write the file
+        if(contentLength = CheckContentLength(sock) && contentLength != -1){
+            // save to the file path
+            
+            int bytes = 0; // current number of bytes written to file
+            FILE* file = fopen(filename, "w"); // opens the file to be written to
 
-        int bytes = 0; // current number of bytes written to file
+            while(bytesReceived = recv(sock, recv_data, MAXBUFFER, 0)){
+                if(bytesReceived == -1){
+                    perror("recieve");
+                    exit(1);
+                }
 
-        file = fopen(filename, "w"); // opens the file to be written to
+                fwrite(recv_data, 1, bytesReceived, file); // writes bytes to file
+                bytes += bytesReceived;
 
-        while(bytesReceived = recv(sock, recv_data, MAXDATA, 0)){
-            if(bytesReceived < 0){
-                perror("recieve");
-                exit(1);
+                if(bytes == contentLength){
+                    break;
+                }
             }
 
-            // writes bytes to file
-            fwrite(recv_data, 1, bytesReceived, file);
-            bytes += bytesReceived;
-
-            // stops receiving bytes when the number of current bytes reaches file size
-            if(bytes == contentLength){
-                break;
-            }
+            fclose(file); // closes the file on completion
         }
 
-        fclose(file); // closes the file
+        // if the response did not contain the content length, print an error message
+        else{
+            fprintf(stdout, "Error: could not download the requested file (file length unknown)\n");
+        }
     }
     
-    else if(contentLength == 0){
-        fprintf(stdout, "Error: could not download the requested file (file length unknown)\n"); // new line character needed?
-        // exit(1); // ?
+    close(sock); // closes the socket
+    return 0;
+}
+
+char* getFileName(char* filepath){
+    char *filename; // filename
+    filename = filepath + strlen(filepath);
+    
+    // extracts filename from path
+    for (; filename > filepath; filename--){
+        if((*filename == '\\') || (*filename == '/')){
+            filename++;
+            break;
+        }
     }
 
-    close(sock); // closes the socket
+    //if the filename's first character is a '/', remove it
+    if(filename[0] == '/'){
+        filename++;
+    }
+    
+    return filename; // returns filename
+}
 
-    return 0;
+int CheckContentLength(int sock){
+    char buff[MAXBUFFER] = "";
+    char* ptr = buff + 4;
+    
+    int bytes_received;
+    int contentLength;
+    
+    while(bytes_received = recv(sock, ptr, 1, 0)){
+        if(bytes_received == -1){
+            perror("CheckContentLength");
+            exit(1);
+        }
+
+        if((ptr[-3] =='\r')  && (ptr[-2] =='\n' ) && (ptr[-1] == '\r')  && (*ptr == '\n')) 
+            break;
+        
+        ptr++;
+    }
+
+    *ptr = 0;
+    ptr = buff + 4;
+
+    // checks if the content legnth was in the response header
+    if(bytes_received){
+        ptr = strstr(ptr,"Content-Length:");
+        if(ptr){
+            // stores the content length
+            sscanf(ptr,"%*s %d", &contentLength);
+        }
+
+        // Content-Length was not present in the server response
+        else{
+            contentLength = -1;
+        }
+    }
+    return contentLength;
+}
+
+int CheckStatus(int sock){
+
+    char buff[MAXBUFFER] = "";
+    char* ptr = buff + 1;
+    int bytes_received, status;
+
+    // retrieves the server response
+    while(bytes_received = recv(sock, ptr, 1, 0)){
+        if(bytes_received == -1){
+            perror("CheckStatus");
+            exit(1);
+        }
+
+        if((ptr[-1] == '\r')  && (*ptr =='\n')) break;
+        ptr++;
+    }
+
+    *ptr = 0;
+    ptr = buff + 1;
+
+    // retrieves the status code
+    sscanf(ptr,"%*s %d ", &status);
+
+    // if the status repsonse was not 200, print what it was
+    if(status != 200){
+        printf("%s\n", ptr);
+    }
+
+    return status; // returns the HTTP Status code
 }
