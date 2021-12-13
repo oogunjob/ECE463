@@ -171,6 +171,7 @@ int CheckContentLength(int sock){
             contentLength = -1;
         }
     }
+
     return contentLength;
 }
 
@@ -194,12 +195,14 @@ int CheckStatus(int sock){
     *ptr = 0;
     ptr = buff + 1;
 
-    // retrieves the status code
-    sscanf(ptr,"%*s %d ", &status);
+    // checks if a 200 OK response was received
+    if(strstr(ptr, "200 OK")){
+        status = 200;
+    }
 
-    // if the status repsonse was not 200, print what it was
-    if(status != 200){
-        printf("%s\n", ptr);
+    // if 200 OK was not received, print the error message from the server
+    else{
+        fprintf(stdout, "%s\n", ptr);
     }
 
     return status; // returns the HTTP Status code
