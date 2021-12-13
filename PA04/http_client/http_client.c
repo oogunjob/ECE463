@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
         exit(1); 
     }
 
-    // check if the response status was '200 OK'
+    // check if the response status was 200 OK
     if(CheckStatus(sock) == 200){
         
         // if the response is 200 OK, check if the Content-Length was valid, if so write the file
